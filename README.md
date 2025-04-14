@@ -1,3 +1,5 @@
-# TransporteXpress-TPA
+<div align="center">
+<h1 align="center">TransporteXpress</h1>
+</div>
 
 Una empresa llamada TransporteXpress se dedica al transporte desde y hacia diversos puntos del pais, para ello cuenta con una flota de vehículos de distintas capacidades. La empresa está interesada en un sistema que le facilite el control de los vehículos disponibles. Para lo anterior se debe tener en cuenta lo siguiente: Dado el uso de los camiones estos deben ser sometidos a mantenimiento preventivo y, aún así en, ocasiones, se presentan fallas que se deben reparar. Cada vehículo cuenta con una ficha en la que aparecen los datos del mismo (patente, marca, modelo, año, capacidad) y todas las mantenciones realizadas. Por cada mantencion se almacena fecha de inicio, fecha de término, tipo de mantencion (preventiva o reparación) y actividades realizadas (detalle de la actividad y nombre de quien la realizó). En la ficha se almacena además la fecha de la siguiente mantencion preventiva y la duración en días de la misma. Con esta información se desea obtener reportes como los siguientes: Listado de vehículos disponibles en un rango de fechas dado, Promedio mensual de fallas por cada vehículo, Vehículo más próximo a mantencion, Tiempo promedio de reparación por falla, etc.
