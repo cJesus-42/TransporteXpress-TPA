@@ -27,6 +27,7 @@ class InicioSesionApp:
         self.intentos = 4 # Contador inicial
         self.crearInterfaz()
 
+
     def crearInterfaz(self):
         #Fondo
         # self.imagen = PhotoImage(file="C:/Users/Crist/Documents/TPA/TransporteXpress-TPA-main/Imagenes/camionbg.png")
@@ -71,6 +72,7 @@ class InicioSesionApp:
     def guardarUsuarios(self, usuarios):
         with open('usuarios.json', 'w') as file: # w de write sobreescribe el archivo completo y si el archivo no exite lo crea automáticamente.
             json.dump(usuarios, file, indent=4) # Y aquí usamos el dump para convertir un diccionario de python a formato json.
+        # Actualiza la variable en memoria 
 
     def iniciarSesion(self):
         # Bloqueo preventivo
@@ -555,79 +557,91 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
         self.limpiarWidgets()
         self.crearInterfaz()
 
-
-    def formularioGuardarUsuario(self):
-        # Obtiene los valores
-        rut = self.rut.get()
-        nombreCompleto = self.nombreCompleto.get()
-        telefono = self.telefono.get()
-        correo = self.correo.get()
-        direccion = self.direccion.get()
-
-        # Validaciones básicas
-        if not rut or not nombreCompleto:
-            messagebox.showerror("Error", "Debe ingresar al menos RUT y Nombre Completo.")
-            return
-
-        rut = rut.replace("-", "").replace(".", "") # Rut sin guión ni puntos
-        telefono = telefono.replace("-", "").replace(".", "") # Teléfono sin guión ni puntos
-
-        # Validar que el RUT tenga 8 o 9 dígitos
-        if len(rut) < 8:
-            messagebox.showerror("Error", "El RUT debe estar completo.")
-            return
-        elif len(rut) > 9:
-            messagebox.showerror("Error", "El RUT debe tener a lo más 9 dígitos.")
-            return
+    def validarRut(self, rut):
+        rut = rut.replace("-", "").replace(".", "")
+        
+        if len(rut) < 8 or len(rut) > 9:
+            messagebox.showerror("Error", "El RUT debe tener entre 8 y 9 dígitos.")
+            return False
+            
+        elif not rut.isdigit():
+            messagebox.showerror("Error", "El RUT solo puede contener números.")
+            return False
+            
         elif rut == len(rut) * rut[0]:
             messagebox.showerror("Error", "El RUT no puede ser una secuencia de dígitos repetidos.")
-            return True
+            return 
         # Secuencia ascendente
         elif rut in "0123456789":
             messagebox.showerror("Error", "El RUT no puede ser una secuencia ascendente.")
-            return True
+            return 
         # Secuencia descendente
         elif rut in "9876543210":
             messagebox.showerror("Error", "El RUT no puede ser una secuencia descendente.")
-            return True
-        elif len(telefono) != 9:
-            messagebox.showerror("Error", "El teléfono debe tener 9 dígitos.")
             return
-           
-        elif "@" not in correo or (not correo.endswith(".cl") and not correo.endswith(".com")):
-            messagebox.showerror("Error", "El correo electrónico debe contener '@' y terminar en '.cl' o '.com'.")
-            return
-
-        # Cargar usuarios existentes
-        clientes = self.cargarUsuarios()
-        usuarioEncontrado = False
-        # Verificar si ya existe el usuario por RUT
-        for c in clientes:
-            if c['RUT'] == rut:
+            
+        # Verificar si el RUT ya existe (excepto para el usuario actual)
+        usuarios = self.cargarUsuarios()
+        for usuario in usuarios:
+            rut_existente = usuario.get("RUT", "").replace("-", "").replace(".", "")
+            if (usuario["nombre"] != self.nombreUsuarioSesionActual and 
+                rut_existente == rut):
                 messagebox.showerror("Error", "Ya existe un usuario con ese RUT.")
-                return
-                   
-            else:
-                if c.get("nombre") == self.nombreUsuarioSesionActual:
-                    c["RUT"] = rut
-                    c["Nombre Completo"] = nombreCompleto
-                    c["Telefono"] = telefono
-                    c["Correo"] = correo
-                    c["Direccion"] = direccion
-                    usuarioEncontrado = True
-                    break
-          
-        # Agregar nuevo usuario
-        if usuarioEncontrado:
-            self.guardarClientes(clientes)
-            messagebox.showinfo("Éxito", "Usuario actualizado correctamente.")
+                return False
+                
+        return True
+
+    def validarDatos(self, nombreCompleto, telefono, correo, direccion):
+        nombre = nombreCompleto.strip()
+        telefono = telefono.replace(" ", "")
+
+        if len(nombre.split()) < 3:  # Al menos nombre y 2 apellidos
+            messagebox.showerror("Error", "Debe ingresar nombre y 2 apellidos.")
+            return False
+            
+        if len(telefono) != 9:
+            messagebox.showerror("Error", "Teléfono debe tener 9 dígitos.")
+            return False
+            
+        elif "@" not in correo or (not correo.endswith(".cl") or not correo.endswith(".com")) and len(correo) < 13:
+            messagebox.showerror("Error", "El correo electrónico debe contener '@' y terminar en '.cl' o '.com' y tener al menos 13 caracteres.")
+            return False
+        
+        elif len(direccion) == 3:
+            messagebox.showerror("Error", "Ingrese la dirección completa.")
+            return False
         else:
-            messagebox.showerror("Error", "No se encontró un usuario con ese nombre.")
+            self.actualizarClientes(
+    self.rut.get(),
+    self.nombreCompleto.get(),
+    self.telefono.get(),
+    self.correo.get(),
+    self.direccion.get()
+)
+            # Si pasa todas las validaciones, pasa a actualizar los datos del usuario
 
-        # Guardar en JSON
-        self.menuInicial()  # Volver al menú principal
+    def formularioGuardarUsuario(self):
+        rut = self.rut.get().strip()
+        nombreCompleto = self.nombreCompleto.get().strip()
+        telefono = self.telefono.get().strip()
+        correo = self.correo.get().strip()
+        direccion = self.direccion.get().strip()
 
-    def editarPerfil(self, clientes):
+        if not all([rut, nombreCompleto, telefono, correo, direccion]):
+            messagebox.showerror("Error", "Todos los campos son obligatorios.")
+            return
+
+        if not self.validarRut(rut):
+            return
+            
+        if not self.validarDatos(nombreCompleto, telefono, correo):
+            return
+
+        self.actualizarClientes(rut, nombreCompleto, telefono, correo, direccion)
+        messagebox.showinfo("Éxito", "Datos actualizados correctamente.")
+        self.menuInicial()
+       
+    def editarPerfil(self):
         self.limpiarWidgets()
         contenedorFormulario = Frame(self.root, bg="orange")
         contenedorFormulario.pack(padx=20, pady=20)
@@ -637,14 +651,22 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
             return valor.isdigit() or valor == ""
 
         vcmd = (self.root.register(soloNumeros), '%P')
-        clientes = self.cargarUsuarios()
-        # Variables para los campos del formulario
+        clientes = self.cargarUsuarios()  # Método que carga clientes desde JSON
+    
+        #Rellena el formulario con los datos del usuario actual
         for c in clientes:
             if c.get("nombre") == self.nombreUsuarioSesionActual:
-                if c.get("RUT") == "":
-                    Label(contenedorFormulario, text="RUT (sin guión):", bg="orange").grid(row=0, column=0, sticky=E, pady=5)
-                    Entry(contenedorFormulario, textvariable=self.rut, validate='key', validatecommand=vcmd).grid(row=0, column=1, pady=5)
-            break
+                self.rut.set(c.get("RUT", ""))
+                self.nombreCompleto.set(c.get("Nombre Completo", ""))
+                self.telefono.set(c.get("Telefono", ""))
+                self.correo.set(c.get("Correo", ""))
+                self.direccion.set(c.get("Direccion", ""))
+
+        # Variables para los campos del formulario
+        if self.rut.get() == "":
+            # Si el RUT está vacío, se habilita formulario para ingresar RUT
+            Label(contenedorFormulario, text="RUT (sin guión):", bg="orange").grid(row=0, column=0, sticky=E, pady=5)
+            Entry(contenedorFormulario, textvariable=self.rut, validate='key', validatecommand=vcmd).grid(row=0, column=1, pady=5)
 
         Label(contenedorFormulario, text="Nombre Completo:", bg="orange").grid(row=1, column=0, sticky=E, pady=5)
         Entry(contenedorFormulario, textvariable=self.nombreCompleto).grid(row=1, column=1, pady=5)
@@ -659,25 +681,51 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
         Entry(contenedorFormulario, textvariable=self.direccion).grid(row=4, column=1, pady=5)
 
         # Botón para guardar
-        Button(contenedorFormulario, text="Guardar", command=self.formularioGuardarUsuario).grid(row=7, column=0, columnspan=2, pady=15)
+        Button(
+    contenedorFormulario,
+    text="Guardar",
+    command=self.formularioGuardarUsuario
+    ).grid(row=7, column=0, columnspan=2, pady=15)
         
         Button(contenedorFormulario, text="Volver", command=self.menuInicial).grid(row=7, column=1, columnspan=5, pady=15)
         
+    def actualizarClientes(self, rut, nombreCompleto, telefono, correo, direccion):    
+        clientes = self.cargarUsuarios()  # Método que carga clientes desde JSON
+        usuarioEncontrado = False
+        for c in clientes:
+            if c.get("nombre") == self.nombreUsuarioSesionActual:
+                c["RUT"] = rut
+                c["Nombre Completo"] = nombreCompleto
+                c["Telefono"] = telefono
+                c["Correo"] = correo
+                c["Direccion"] = direccion
+                usuarioEncontrado = True
+                break
+          
+        # Agregar nuevo usuario
+        if usuarioEncontrado:
+            self.guardarClientes(clientes)
+            messagebox.showinfo("Éxito", "Usuario actualizado correctamente.")
+            
+            self.menuInicial()  # Volver al menú principal
+        else:
+            messagebox.showerror("Error", "No se encontró un usuario con ese nombre.")
+    
     def listaUsuario (self):
-            # Limpia la tabla antes de cargar datos nuevos
-            for item in self.treeDatos.get_children():
-                self.treeDatos.delete(item)
+        # Limpia la tabla antes de cargar datos nuevos
+        for item in self.treeDatos.get_children():
+            self.treeDatos.delete(item)
 
-            usuarios = self.cargarUsuarios()  # Método que carga usuarios desde JSON
+        usuarios = self.cargarUsuarios()  # Método que carga usuarios desde JSON
 
-            for usuario in usuarios:
-                self.treeDatos.insert('', 'end', values=(
-                    usuario.get("RUT", ""),
-                    usuario.get("Nombre Completo", ""),
-                    usuario.get("Teléfono", ""),
-                    usuario.get("Correo Electrónico", ""),
-                    usuario.get("Dirección", "")
-                ))
+        for usuario in usuarios:
+            self.treeDatos.insert('', 'end', values=(
+                usuario.get("RUT", ""),
+                usuario.get("Nombre Completo", ""),
+                usuario.get("Teléfono", ""),
+                usuario.get("Correo Electrónico", ""),
+                usuario.get("Dirección", "")
+            ))
 
     def mostrarDatos(self):
         pass
