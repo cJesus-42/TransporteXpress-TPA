@@ -1,0 +1,47 @@
+[
+    {
+        "nombre": "admin",
+        "contrasenia": "1234",
+        "RUT": "",
+        "Nombre Completo": "",
+        "Telefono": "",
+        "Direccion": "",
+        "Correo": ""
+    },
+    {
+        "nombre": "milly",
+        "contrasenia": "icinf",
+        "RUT": "",
+        "Nombre Completo": "",
+        "Telefono": "",
+        "Direccion": "",
+        "Correo": ""
+    },
+    {
+        "nombre": "cristian",
+        "contrasenia": "icinf",
+        "RUT": "1234567891",
+        "Nombre Completo": "cristian C",
+        "Telefono": "21",
+        "Direccion": "ds21",
+        "Correo": "ds"
+    },
+    {
+        "nombre": "pauli",
+        "contrasenia": "icinf",
+        "RUT": "",
+        "Nombre Completo": "pcb",
+        "Telefono": "920657113",
+        "Direccion": "",
+        "Correo": "@.cl"
+    },
+    {
+        "nombre": "sofi",
+        "contrasenia": "icinf",
+        "RUT": "",
+        "Nombre Completo": "",
+        "Telefono": "",
+        "Direccion": "",
+        "Correo": ""
+    }
+]
