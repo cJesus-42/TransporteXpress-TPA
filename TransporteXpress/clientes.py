@@ -1,9 +1,9 @@
-import json
-import os
 from tkinter import StringVar
+import json
 
 class Clientes:
     def __init__(self):
+        # Variables de formulario
         self.rut = StringVar()
         self.nombreCompleto = StringVar()
         self.telefono = StringVar()

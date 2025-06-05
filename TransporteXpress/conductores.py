@@ -1,5 +1,4 @@
 import json
-import os
 from tkinter import StringVar
 
 class Conductores:
@@ -15,12 +14,10 @@ class Conductores:
         self.vacaciones = False
         self.disponibilidad = True
 
-    def cargarConductores(self):
-        if not os.path.exists('conductores.json'): #si no existe el archivo te retorna una lista vacía
-            return []
-        with open('conductores.json', 'r', encoding='utf-8') as file: 
-            return json.load(file) #json a python
+    def cargarCamiones(self):
+        with open('camiones.json', 'r', encoding='utf-8') as file:
+            return json.load(file) # json a python
 
-    def guardarConductores(self, conductores):
-        with open('conductores.json', 'w', encoding='utf-8') as file:
+    def guardarCamiones(self, conductores):
+        with open('camiones.json', 'w', encoding='utf-8') as file:
             json.dump(conductores, file, indent=4, ensure_ascii=False) #python a json
