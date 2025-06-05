@@ -547,8 +547,10 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
         for texto, comando in botones:
             Button(self.barraHorizontal, text=texto, command=comando, bg="white", fg="black",
                 font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
-            self.contenedor_menu = Frame(self.root)
-            self.contenedor_menu.pack(expand=True)
+            self.contenedorMenu = Frame(self.root)
+            self.contenedorMenu.pack(expand=True)
+
+        Button(self.barraHorizontal, text="Eliminar Usuario", command=self.eliminarUsuario,font=("Montserrat", 12)).pack(side=RIGHT, padx=10, pady=10)
 
     def camionesDispobibles(self):
         pass
@@ -599,8 +601,11 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
             messagebox.showerror("Error", "Debe ingresar nombre y 2 apellidos.")
             return False
             
-        if len(telefono) != 9:
+        elif len(telefono) != 9:
             messagebox.showerror("Error", "Teléfono debe tener 9 dígitos.")
+            return False
+        elif telefono == "123456789" or telefono == "987654321" or telefono == len(telefono) * telefono[0]:
+            messagebox.showerror("Error", "El teléfono no es válido.")
             return False
             
         elif "@" not in correo or (not correo.endswith(".cl") or not correo.endswith(".com")) and len(correo) < 13:
@@ -634,7 +639,7 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
         if not self.validarRut(rut):
             return
             
-        if not self.validarDatos(nombreCompleto, telefono, correo):
+        if not self.validarDatos(nombreCompleto, telefono, correo, direccion):
             return
 
         self.actualizarClientes(rut, nombreCompleto, telefono, correo, direccion)
@@ -665,7 +670,7 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
         # Variables para los campos del formulario
         if self.rut.get() == "":
             # Si el RUT está vacío, se habilita formulario para ingresar RUT
-            Label(contenedorFormulario, text="RUT (sin guión):", bg="orange").grid(row=0, column=0, sticky=E, pady=5)
+            Label(contenedorFormulario, text="RUT (sin guión y 0 si termina en K):", bg="orange").grid(row=0, column=0, sticky=E, pady=5)
             Entry(contenedorFormulario, textvariable=self.rut, validate='key', validatecommand=vcmd).grid(row=0, column=1, pady=5)
 
         Label(contenedorFormulario, text="Nombre Completo:", bg="orange").grid(row=1, column=0, sticky=E, pady=5)
@@ -710,7 +715,52 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
             self.menuInicial()  # Volver al menú principal
         else:
             messagebox.showerror("Error", "No se encontró un usuario con ese nombre.")
-    
+
+    def eliminarUsuario(self):
+        self.limpiarWidgets()
+        contenedorFormulario = Frame(self.root, bg="orange")
+        contenedorFormulario.pack(padx=40, pady=40)
+
+        usuarios = self.cargarUsuarios()  # Método que carga usuarios desde JSON
+
+        # Busca y muestra los datos del usuario actual
+        for c in usuarios:
+            if c.get("nombre") == self.nombreUsuarioSesionActual:
+                self.rut.set(c.get("RUT", ""))
+                self.nombreCompleto.set(c.get("Nombre Completo", ""))
+                self.telefono.set(c.get("Telefono", ""))
+                self.correo.set(c.get("Correo", ""))
+                self.direccion.set(c.get("Direccion", ""))
+
+                # Mostrar los datos en el formulario, bien distribuidos
+                Label(contenedorFormulario, text=f"RUT:", bg="orange", anchor="w", font=("Montserrat", 12, "bold")).grid(row=0, column=0, sticky="e", pady=5, padx=5)
+                Label(contenedorFormulario, text=self.rut.get(), bg="orange", anchor="w", font=("Montserrat", 12)).grid(row=0, column=1, sticky="w", pady=5, padx=5)
+                Label(contenedorFormulario, text=f"Nombre:", bg="orange", anchor="w", font=("Montserrat", 12, "bold")).grid(row=1, column=0, sticky="e", pady=5, padx=5)
+                Label(contenedorFormulario, text=self.nombreCompleto.get(), bg="orange", anchor="w", font=("Montserrat", 12)).grid(row=1, column=1, sticky="w", pady=5, padx=5)
+                Label(contenedorFormulario, text=f"Teléfono:", bg="orange", anchor="w", font=("Montserrat", 12, "bold")).grid(row=2, column=0, sticky="e", pady=5, padx=5)
+                Label(contenedorFormulario, text=self.telefono.get(), bg="orange", anchor="w", font=("Montserrat", 12)).grid(row=2, column=1, sticky="w", pady=5, padx=5)
+                Label(contenedorFormulario, text=f"Correo:", bg="orange", anchor="w", font=("Montserrat", 12, "bold")).grid(row=3, column=0, sticky="e", pady=5, padx=5)
+                Label(contenedorFormulario, text=self.correo.get(), bg="orange", anchor="w", font=("Montserrat", 12)).grid(row=3, column=1, sticky="w", pady=5, padx=5)
+                Label(contenedorFormulario, text=f"Dirección:", bg="orange", anchor="w", font=("Montserrat", 12, "bold")).grid(row=4, column=0, sticky="e", pady=5, padx=5)
+                Label(contenedorFormulario, text=self.direccion.get(), bg="orange", anchor="w", font=("Montserrat", 12)).grid(row=4, column=1, sticky="w", pady=5, padx=5)
+                break
+
+        # Configura las columnas para que se expandan y centren los botones
+        contenedorFormulario.grid_columnconfigure(0, weight=1)
+        contenedorFormulario.grid_columnconfigure(1, weight=1)
+
+        def confirmar():
+            confirmar = messagebox.askyesno("Confirmar", f'¿Está seguro que desea eliminar el usuario "{self.nombreUsuarioSesionActual}"?')
+            if confirmar:
+                nuevos_usuarios = [u for u in usuarios if u.get("nombre") != self.nombreUsuarioSesionActual]
+                self.guardarUsuarios(nuevos_usuarios)
+                messagebox.showinfo("Éxito", "Usuario eliminado correctamente.")
+                self.salir()
+
+        # Botones centrados en la fila 6
+        Button(contenedorFormulario, text="Confirmar", command=confirmar, width=12).grid(row=6, column=0, pady=20, padx=10)
+        Button(contenedorFormulario, text="Volver", command=self.menuInicial, width=12).grid(row=6, column=1, pady=20, padx=10)
+     
     def listaUsuario (self):
         # Limpia la tabla antes de cargar datos nuevos
         for item in self.treeDatos.get_children():
@@ -726,9 +776,6 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
                 usuario.get("Correo Electrónico", ""),
                 usuario.get("Dirección", "")
             ))
-
-    def mostrarDatos(self):
-        pass
 
 # Clase principal para ejecutar la aplicación
 if __name__=="__main__":
