@@ -12,9 +12,9 @@ class Clientes:
         
     def actualizarLlavesUsuarios(self):
         with open('usuarios.json', 'r', encoding='utf-8') as file:
-            usuarios = json.load(file) #carga el archivo json
+            usuarios = json.load(file) # Carga el archivo json
 
-        for usuario in usuarios: #se recorre el archivo json verificando que estén las llaves "RUT", "Nombre Completo", etc. sino las crea y las deja en blanco, sin una clave.
+        for usuario in usuarios: # Se recorre el archivo json verificando que estén las llaves "RUT", "Nombre Completo", etc. sino las crea y las deja en blanco, sin una clave.
             if 'RUT' not in usuario:
                 usuario['RUT'] = ""
             if 'Nombre Completo' not in usuario:
@@ -43,4 +43,4 @@ class Clientes:
 
     def guardarClientes(self, usuarios):
         with open('usuarios.json', 'w', encoding='utf-8') as file:
-            json.dump(usuarios, file, indent=4, ensure_ascii=False) #python a json
+            json.dump(usuarios, file, indent=4, ensure_ascii=False) # python a json

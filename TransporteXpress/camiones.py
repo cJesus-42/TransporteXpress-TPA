@@ -15,9 +15,9 @@ class Camiones:
 
     def actualizarLlavesUsuarios(self):
         with open('camiones.json', 'r', encoding='utf-8') as file:
-            camiones = json.load(file) #carga el archivo json
+            camiones = json.load(file) # Carga el archivo json
 
-        for c in camiones: #se recorre el archivo json verificando que estén las llaves "idPatente", "Marca", etc. sino las crea y las deja en blanco, sin una clave.
+        for c in camiones: # Se recorre el archivo json verificando que estén las llaves "idPatente", "Marca", etc. sino las crea y las deja en blanco, sin una clave.
             if 'idCamion' not in c:
                 c['idCamion'] = ""
             if 'Patente' not in c:

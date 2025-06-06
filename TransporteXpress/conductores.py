@@ -4,7 +4,7 @@ from tkinter import StringVar
 class Conductores:
     def __init__(self):
         # Variables de formulario
-        self.idConductor = StringVar() #RUT
+        self.idConductor = StringVar() # RUT
         self.nombreConductor = StringVar()
         self.telefono = StringVar()
         self.correo = StringVar()
@@ -20,4 +20,4 @@ class Conductores:
 
     def guardarConductores(self, conductores):
         with open('conductores.json', 'w', encoding='utf-8') as file:
-            json.dump(conductores, file, indent=4, ensure_ascii=False) #python a json
+            json.dump(conductores, file, indent=4, ensure_ascii=False) # python a json
