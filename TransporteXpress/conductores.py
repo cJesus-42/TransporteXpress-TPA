@@ -14,10 +14,10 @@ class Conductores:
         self.vacaciones = False
         self.disponibilidad = True
 
-    def cargarCamiones(self):
-        with open('camiones.json', 'r', encoding='utf-8') as file:
+    def cargarConductores(self):
+        with open('conductores.json', 'r', encoding='utf-8') as file:
             return json.load(file) # json a python
 
-    def guardarCamiones(self, conductores):
-        with open('camiones.json', 'w', encoding='utf-8') as file:
+    def guardarConductores(self, conductores):
+        with open('conductores.json', 'w', encoding='utf-8') as file:
             json.dump(conductores, file, indent=4, ensure_ascii=False) #python a json

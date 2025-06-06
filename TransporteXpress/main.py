@@ -29,10 +29,11 @@ class InicioSesionApp:
         self.crearInterfaz()
 
     def crearInterfaz(self):
-        #Fondo
-        # self.imagen = PhotoImage(file="C:/Users/Crist/Documents/TPA/TransporteXpress-TPA-main/Imagenes/camionbg.png")
-        # imagenLabel = Label(self.root, image=self.imagen)
-        # imagenLabel.pack(side=LEFT, fill="both", expand=TRUE)
+        # Fondo
+        self.imagen = PhotoImage(file="C:/Users/Millaray/Desktop/3° Semestre/Proyecto TPA/TransporteXpress/Imagenes/camionbg.png")
+        imagenLabel = Label(self.root, image=self.imagen)
+        imagenLabel.pack(side=LEFT, fill="both", expand=TRUE)
+        
 
         #Contenedor
         contenedor = Frame(self.root, bg="orange", )
@@ -65,7 +66,7 @@ class InicioSesionApp:
     def cargarUsuarios(self):
         if not os.path.exists('usuarios.json'): # Verifica si el archivo 'usuarios.json' existe en el directorio actual
             return [] # Si no existe returna una lista vacía para evitar errores.
-           
+        
         with open('usuarios.json', 'r') as file: # Manejo seguro de archivos, r(read) significa que es solo para lectura.
             return json.load(file) # Convierte el contenido del archivo JSON en un diccionario de python, si quisieramos hacer el caso opuesto deberíamos usar json.dumps
 
@@ -148,9 +149,9 @@ class MenuAdmin(Conductores, Camiones):
         self.limpiarWidgets()
         
         # Fondo
-        # self.imagen = PhotoImage(file="C:/Users/Crist/Documents/TPA/TransporteXpress-TPA-main/Imagenes/camionbg.png")
-        # imagenLabel = Label(self.root, image=self.imagen)
-        # imagenLabel.pack(side=LEFT, fill="both", expand=TRUE)
+        self.imagen = PhotoImage(file="C:/Users/Millaray/Desktop/3° Semestre/Proyecto TPA/TransporteXpress/Imagenes/camionbg.png")
+        imagenLabel = Label(self.root, image=self.imagen)
+        imagenLabel.pack(side=LEFT, fill="both", expand=TRUE)
         
         self.contenedorBotones = Frame(self.root, bg="orange")
         self.contenedorBotones.place(relx=0.5, rely=0.5, anchor=S)
@@ -341,7 +342,7 @@ class MenuAdmin(Conductores, Camiones):
         # Refresca la tabla
         self.listaConductores()
         messagebox.showinfo("Éxito", f"Conductor con RUT {rut_a_eliminar} eliminado correctamente.")
-   
+
     def pasar(self):
         self.limpiarWidgets()
         InfoCamiones(self.root)
@@ -359,9 +360,14 @@ class InfoCamiones(MenuAdmin, Camiones):
 
         with open('camiones.json', 'r') as file: # Manejo seguro de archivos, r(read) significa que es solo para lectura.
             return json.load(file) # Convierte el contenido del archivo JSON en un diccionario de python, si quisieramos hacer el caso opuesto deberíamos usar json.dumps
+    
+    def guardarCamiones(self, camiones):
+        with open('camiones.json', 'w') as file:
+            json.dump(camiones, file, indent=4)
         
     def mostrarMenuHorizontalCamiones(self):
         self.limpiarWidgets() #limpia la ventana para mostrar el menu horizontal
+        
         self.barraHorizontal = Frame(self.root, bg="orange", height=50)
         self.barraHorizontal.pack(side=TOP, fill=X)
 
@@ -396,24 +402,28 @@ class InfoCamiones(MenuAdmin, Camiones):
         # Cargar y mostrar los datos
         self.listaCamiones()
         
+        self.imagen = PhotoImage(file="C:/Users/Millaray/Desktop/3° Semestre/Proyecto TPA/TransporteXpress/Imagenes/camionbg.png")
+        imagenLabel = Label(self.root, image=self.imagen)
+        imagenLabel.pack(side=LEFT, fill="both", expand=TRUE)
+        
     def agregarCamion(self): 
         self.limpiarWidgets()
-        contenedorFormulario = Frame(self.root, bg="orange")
-        contenedorFormulario.pack(padx=20, pady=20)
-          
+        contenedorFormularioCamion = Frame(self.root, bg="orange")
+        contenedorFormularioCamion.pack(padx=20, pady=20)
+
         # Etiquetas y entradas
-        Label(contenedorFormulario, text="Patente:", bg="orange").grid(row=0, column=0, sticky=E, pady=5)
-        Entry(contenedorFormulario, textvariable=self.patente).grid(row=0, column=1, pady=5)
+        Label(contenedorFormularioCamion, text="Patente:", bg="orange").grid(row=0, column=0, sticky=E, pady=5)
+        Entry(contenedorFormularioCamion, textvariable=self.patente).grid(row=0, column=1, pady=5)
 
-        Label(contenedorFormulario, text="Marca:", bg="orange").grid(row=1, column=0, sticky=E, pady=5)
-        Entry(contenedorFormulario, textvariable=self.marca).grid(row=1, column=1, pady=5)
+        Label(contenedorFormularioCamion, text="Marca:", bg="orange").grid(row=1, column=0, sticky=E, pady=5)
+        Entry(contenedorFormularioCamion, textvariable=self.marca).grid(row=1, column=1, pady=5)
 
-        Label(contenedorFormulario, text="Modelo:", bg="orange").grid(row=2, column=0, sticky=E, pady=5)
-        Entry(contenedorFormulario, textvariable=self.modelo).grid(row=2, column=1, pady=5)
+        Label(contenedorFormularioCamion, text="Modelo:", bg="orange").grid(row=2, column=0, sticky=E, pady=5)
+        Entry(contenedorFormularioCamion, textvariable=self.modelo).grid(row=2, column=1, pady=5)
 
         # Botón para guardar
-        Button(contenedorFormulario, text="Guardar", command=self.guardarCamion).grid(row=7, column=0, columnspan=2, pady=15)
-        Button(contenedorFormulario, text="Volver", command=self.mostrarMenuHorizontalCamiones).grid(row=7, column=1, columnspan=2, pady=15)
+        Button(contenedorFormularioCamion, text="Guardar", command=self.guardarCamion).grid(row=7, column=0, columnspan=2, pady=15, ipadx=10, padx=20)
+        Button(contenedorFormularioCamion, text="Volver", command=self.mostrarMenuHorizontalCamiones).grid(row=7, column=2, columnspan=2, pady=15, ipadx=30, padx=20)
         
     def validarCamion(self, Patente, marca, modelo):
         Patente = Patente.replace("-", "").replace(".", "")
@@ -422,7 +432,7 @@ class InfoCamiones(MenuAdmin, Camiones):
 
         if not all([Patente, marca, modelo]):
             messagebox.showerror("Error", "Todos los campos son obligatorios.")
-            return
+            return False
 
         elif len(Patente) != 6:
             messagebox.showerror("Error", "La patente debe tener 6 dígitos.")
@@ -430,29 +440,29 @@ class InfoCamiones(MenuAdmin, Camiones):
 
         elif Patente == len(Patente) * Patente[0]:
             messagebox.showerror("Error", "La patente no puede ser una secuencia de dígitos repetidos.")
-            return
+            return False
 
-        # Secuencia ascendente
         elif Patente in "012345":
             messagebox.showerror("Error", "La patente no puede ser una secuencia ascendente.")
-            return
+            return False
 
-        # Secuencia descendente
         elif Patente in "987654":
-            messagebox.showerror("Error", "El RUT no puede ser una secuencia descendente.")
-            return
+            messagebox.showerror("Error", "La patente no puede ser una secuencia descendente.")
+            return False
 
         # Verificar si la patente ya existe
         a = self.cargarCamiones()
         for c in a:
-            Patente_existente = c.get("idPatente", "")
+            Patente_existente = c.get("Patente", "")
             if Patente_existente == Patente:
                 messagebox.showerror("Error", "Ya existe un camión con esa patente.")
                 return False
 
-        if len(marca) < 2 and len(modelo) < 2:
-            messagebox.showerror("Error", "La marca y modelo debe tener como mínimo 2 dígitos.")
+        if len(marca) < 2 or len(modelo) < 2:
+            messagebox.showerror("Error", "La marca y modelo deben tener como mínimo 2 caracteres.")
             return False
+
+        return True
 
     def guardarCamion(self):
         patente = self.patente.get().strip()
@@ -472,18 +482,17 @@ class InfoCamiones(MenuAdmin, Camiones):
         camiones = self.cargarCamiones()
         
         for c in camiones:
-                self.treeConductores.insert('', 'end', values=(
+                self.treeCamiones.insert('', 'end', values=(
                     c.get("idCamion", ""),
                     c.get("Patente", ""),
                     c.get("Marca", ""),
                     c.get("Modelo", ""),
-                    c.get("Disponible", ""),
-                    c.get("Ingreso", "")
+                    c.get("Ingreso", ""),
+                    c.get("Disponible", "")
                 ))
 
-    def actualizarCamion(self, idPatente, marca, modelo):    
-        camiones = self.cargarCamiones()  # Método que carga camiones desde JSON
-
+    def actualizarCamion(self, Patente, marca, modelo):    
+        camiones = self.cargarCamiones()
         letra = [chr(i) for i in range(ord('A'), ord('Z')+1)]
         asignado = False
 
@@ -492,13 +501,13 @@ class InfoCamiones(MenuAdmin, Camiones):
                 for l in letra:
                     for i in range(1, 4):
                         nuevoId = f"{l}{i}"
-                        # Verifica que no esté ya asignado a otro camion
                         if not any(cam.get("idCamion") == nuevoId for cam in camiones):
                             c["idCamion"] = nuevoId
-                            c["idPatente"] = idPatente
+                            c["Patente"] = Patente
                             c["Marca"] = marca
                             c["Modelo"] = modelo
                             c["Ingreso"]= datetime.now().strftime("%Y-%m-%d")
+                            c["Disponible"] = "Sí"
                             asignado = True
                             break
                     if asignado:
@@ -508,11 +517,34 @@ class InfoCamiones(MenuAdmin, Camiones):
 
         if asignado:
             self.guardarCamiones(camiones)
-            messagebox.showinfo("Éxito", "Camión asignado correctamente.")
+            messagebox.showinfo("Éxito", "El camión se ha agregado exitosamente")
             self.mostrarMenuHorizontalCamiones()
         else:
-            messagebox.showerror("Error", "No se pudo asignar un idCamion.")
-            self.guardarCamion()  # Volver al menú de camiones
+            # Si no hay camión vacío, agrega uno nuevo
+            nuevoId = None
+            for l in letra:
+                for i in range(1, 4):
+                    posibleId = f"{l}{i}"
+                    if not any(cam.get("idCamion") == posibleId for cam in camiones):
+                        nuevoId = posibleId
+                        break
+                if nuevoId:
+                    break
+            if nuevoId:
+                nuevoCamion = {
+                    "idCamion": nuevoId,
+                    "Patente": Patente,
+                    "Marca": marca,
+                    "Modelo": modelo,
+                    "Ingreso": datetime.now().strftime("%Y-%m-%d"),
+                    "Disponible": "Sí"
+                }
+                camiones.append(nuevoCamion)
+                self.guardarCamiones(camiones)
+                messagebox.showinfo("Éxito", "El camión se ha agregado exitosamente")
+                self.mostrarMenuHorizontalCamiones()
+            else:
+                messagebox.showerror("Error", "No se pudo asignar un idCamion.")
 
 class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
     def __init__(self, root, nombreUsuarioSesionActual):
@@ -531,8 +563,8 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
 
         botones = [
             ("Disponibles", self.camionesDispobibles),
-            ("Salir", self.salir),
-            ("Editar Perfil", self.editarPerfil)
+            ("Editar Perfil", self.editarPerfil),
+            ("Salir", self.salir)
         ]
 
         for texto, comando in botones:
@@ -543,6 +575,41 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
 
         Button(self.barraHorizontal, text="Eliminar Usuario", command=self.eliminarUsuario,font=("Montserrat", 12)).pack(side=RIGHT, padx=10, pady=10)
 
+        # Contenedor para la lista de conductores debajo de la barra
+        self.contenedorListaCamionesUsuarios = Frame(self.root)
+        self.contenedorListaCamionesUsuarios.pack(fill=BOTH, expand=True, padx=20, pady=20)
+
+        # Crear el Treeview con columnas para cada dato
+        columnas = ("Patente", "Marca", "Modelo", "Fecha de Ingreso", "Disponible")
+        self.treeCamionesUsuarios = ttk.Treeview(self.contenedorListaCamionesUsuarios, columns=columnas, show='headings')
+
+        # Definir encabezados
+        for col in columnas:
+            self.treeCamionesUsuarios.heading(col, text=col)
+            self.treeCamionesUsuarios.column(col, width=120, anchor='center')
+
+        self.treeCamionesUsuarios.pack(fill=BOTH, expand=True)
+
+        # Cargar y mostrar los datos
+        self.listaCamionesUsuarios()
+        
+    def listaCamiones(self):
+        # Limpia la tabla antes de cargar datos nuevos
+        for item in self.treeCamiones.get_children():
+            self.treeCamiones.delete(item)
+
+        camiones = self.cargarCamiones()
+        
+        for c in camiones:
+            self.treeCamiones.insert('', 'end', values=(
+                c.get("idCamion", ""),
+                c.get("Patente", ""),
+                c.get("Marca", ""),
+                c.get("Modelo", ""),
+                c.get("Ingreso", ""),
+                c.get("Disponible", "")
+            ))
+        
     def camionesDispobibles(self):
         pass
 
@@ -556,7 +623,7 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
         if len(rut) < 8 or len(rut) > 9:
             messagebox.showerror("Error", "El RUT debe tener entre 8 y 9 dígitos.")
             return False
- 
+
         elif not rut.isdigit():
             messagebox.showerror("Error", "El RUT solo puede contener números.")
             return False
@@ -592,7 +659,7 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
         if len(nombre.split()) < 3:  # Al menos nombre y 2 apellidos
             messagebox.showerror("Error", "Debe ingresar nombre y 2 apellidos.")
             return False
-                   
+        
         if len(telefono) != 9:
             messagebox.showerror("Error", "El teléfono debe tener 9 dígitos.")
             return False
@@ -636,7 +703,7 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
             return
 
         self.actualizarClientes(rut, nombreCompleto, telefono, correo, direccion)
-       
+
     def editarPerfil(self):
         self.limpiarWidgets()
         contenedorFormulario = Frame(self.root, bg="orange")
@@ -697,7 +764,7 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
                 c["Direccion"] = direccion
                 usuarioEncontrado = True
                 break
-          
+
         # Agregar nuevo usuario
         if usuarioEncontrado:
             self.guardarClientes(clientes)
@@ -751,7 +818,7 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
         # Botones centrados en la fila 6
         Button(contenedorFormulario, text="Confirmar", command=confirmar, width=12).grid(row=6, column=0, pady=20, padx=10)
         Button(contenedorFormulario, text="Volver", command=self.menuInicial, width=12).grid(row=6, column=1, pady=20, padx=10)
-     
+        
     def listaUsuario (self):
         # Limpia la tabla antes de cargar datos nuevos
         for item in self.treeDatos.get_children():
