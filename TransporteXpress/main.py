@@ -6,6 +6,7 @@ from tkcalendar import DateEntry
 from clientes import Clientes
 from camiones import Camiones
 from datetime import datetime
+from tkinter.ttk import Combobox
 from tkinter import *
 import json
 import re
@@ -331,13 +332,13 @@ class MenuAdmin(Conductores, Camiones):
         # Verifica que el treeview existe antes de usarlo
         if not hasattr(self, 'treeConductores') or not self.treeConductores.winfo_exists():
             return  # O vuelve a crear el treeview aquí
-    
+
         # Limpia la tabla antes de cargar datos nuevos
         for item in self.treeConductores.get_children():
             self.treeConductores.delete(item)
-    
+
         conductores = self.cargarConductores()  # Método que carga conductores desde JSON
-    
+
         for conductor in conductores:
             self.treeConductores.insert('', 'end', values=(
                 conductor.get("RUT", ""),
@@ -369,7 +370,7 @@ class MenuAdmin(Conductores, Camiones):
         ingreso = valores[6]
 
         self.formularioEditarConductor(idConductor, nombreConductor, telefono, correo, direccion, nacimiento, ingreso)
-    
+
     def formularioEditarConductor(self, idConductor, nombreConductor, telefono, correo, direccion, nacimiento, ingreso):
         self.limpiarWidgets()
         contenedorFormulario = Frame(self.root, bg="orange")
@@ -393,7 +394,7 @@ class MenuAdmin(Conductores, Camiones):
 
         Label(contenedorFormulario, text="Télefono +56:", bg="orange").grid(row=2, column=0, sticky=E, pady=5)
         Entry(contenedorFormulario, textvariable=self.telefono).grid(row=2, column=1, pady=5)
-        
+
         Label(contenedorFormulario, text="Correo:", bg="orange").grid(row=3, column=0, sticky=E, pady=5)
         Entry(contenedorFormulario, textvariable=self.correo).grid(row=3, column=1, pady=5)
 
@@ -511,8 +512,7 @@ class InfoCamiones(MenuAdmin, Camiones):
             json.dump(camiones, file, indent=4)
         
     def mostrarMenuHorizontalCamiones(self):
-        self.limpiarWidgets() #limpia la ventana para mostrar el menu horizontal
-        
+        self.limpiarWidgets()
         self.barraHorizontal = Frame(self.root, bg="orange", height=50)
         self.barraHorizontal.pack(side=TOP, fill=X)
 
@@ -520,6 +520,8 @@ class InfoCamiones(MenuAdmin, Camiones):
             ("Agregar", self.agregarCamion),
             ("Editar", self.editarCamion),
             ("Eliminar", self.accionEliminarCamiones),
+            ("Mantención", self.mostrarCamionesNoDisponibles),
+            ("Marcas", self.mostrarCrudMarcas),
             ("Volver", self.volverBotones)
         ]
 
@@ -528,16 +530,15 @@ class InfoCamiones(MenuAdmin, Camiones):
                 font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
             self.contenedor_menu = Frame(self.root)
             self.contenedor_menu.pack(expand=True)
-            
-        # Contenedor para la lista de conductores debajo de la barra
+        
+        # Contenedor para la lista de camiones debajo de la barra
         self.contenedorListaCamiones = Frame(self.root)
         self.contenedorListaCamiones.pack(fill=BOTH, expand=True, padx=20, pady=20)
 
-        # Crear el Treeview con columnas para cada dato
+        # Quita la columna Asunto
         columnas = ("ID", "Patente", "Marca", "Modelo", "Fecha de ingreso", "Disponible")
         self.treeCamiones = ttk.Treeview(self.contenedorListaCamiones, columns=columnas, show='headings')
 
-        # Definir encabezados
         for col in columnas:
             self.treeCamiones.heading(col, text=col)
             self.treeCamiones.column(col, width=120, anchor='center')
@@ -545,31 +546,39 @@ class InfoCamiones(MenuAdmin, Camiones):
         self.treeCamiones.pack(fill=BOTH, expand=True)
 
         # Cargar y mostrar los datos
-        self.listaCamiones()
+        camiones = self.cargarCamiones()
+        for c in camiones:
+            self.treeCamiones.insert('', 'end', values=(
+                c.get("idCamion", ""),
+                c.get("Patente", ""),
+                c.get("Marca", ""),
+                c.get("Modelo", ""),
+                c.get("Ingreso", ""),
+                c.get("Disponible", "")
+            ))
 
-        #Fondo de la ventana
+        # Fondo de la ventana
         self.imagen = PhotoImage(file="C:/Users/Crist/Documents/TransporteXpress/TransporteXpress/Imagenes/camionbg.png")
         imagenLabel = Label(self.root, image=self.imagen)
         imagenLabel.pack(side=LEFT, fill="both", expand=TRUE)
-        
+
     def agregarCamion(self): 
         self.limpiarWidgets()
         contenedorFormularioCamion = Frame(self.root, bg="orange")
         contenedorFormularioCamion.pack(padx=20, pady=20)
 
-        # En marca, solo se permiten letras y espacios
-        def solo_letras(valor):
-            return valor.isalpha() or valor == ""
+        # Cargar marcas
+        marcas = self.cargarMarcas()
+        self.marca_var = StringVar()
+        Label(contenedorFormularioCamion, text="Marca:", bg="orange").grid(row=1, column=0, sticky=E, pady=5)
+        marca_combo = Combobox(contenedorFormularioCamion, textvariable=self.marca_var, values=marcas, state="readonly")
+        marca_combo.grid(row=1, column=1, pady=5)
+        if marcas:
+            marca_combo.current(0)
 
-        vcmd = (self.root.register(solo_letras), '%P')
-
-        # Etiquetas y entradas
+        # El resto de tu formulario igual...
         Label(contenedorFormularioCamion, text="Patente:", bg="orange").grid(row=0, column=0, sticky=E, pady=5)
         Entry(contenedorFormularioCamion, textvariable=self.patente).grid(row=0, column=1, pady=5)
-
-        Label(contenedorFormularioCamion, text="Marca:", bg="orange").grid(row=1, column=0, sticky=E, pady=5)
-        Entry(contenedorFormularioCamion, textvariable=self.marca, validate='key', validatecommand=vcmd).grid(row=1, column=1, pady=5)
-
         Label(contenedorFormularioCamion, text="Modelo:", bg="orange").grid(row=2, column=0, sticky=E, pady=5)
         Entry(contenedorFormularioCamion, textvariable=self.modelo).grid(row=2, column=1, pady=5)
 
@@ -581,10 +590,9 @@ class InfoCamiones(MenuAdmin, Camiones):
         self.imagen = PhotoImage(file="C:/Users/Crist/Documents/TransporteXpress/TransporteXpress/Imagenes/camionbg.png")
         imagenLabel = Label(self.root, image=self.imagen)
         imagenLabel.pack(side=LEFT, fill="both", expand=TRUE)
-        
+
     def validarCamion(self, Patente, marca, modelo):
         Patente = Patente.replace("-", "").replace(".", "")
-        marca = marca.replace("-", "").replace(".", "")
         modelo = modelo.replace("-", "").replace(".", "")
 
         if not all([Patente, marca, modelo]):
@@ -614,15 +622,11 @@ class InfoCamiones(MenuAdmin, Camiones):
             if Patente_existente == Patente:
                 messagebox.showerror("Error", "Ya existe un camión con esa patente.")
                 return False
-
-        if len(marca) < 2 or len(modelo) < 2:
-            messagebox.showerror("Error", "La marca y modelo deben tener como mínimo 2 caracteres.")
-            return False
         return True
 
     def guardarCamion(self):
         patente = self.patente.get().strip()
-        marca = self.marca.get().strip()
+        marca = self.marca_var.get().strip()
         modelo = self.modelo.get().strip()
 
         if not self.validarCamion(patente, marca, modelo):
@@ -636,16 +640,16 @@ class InfoCamiones(MenuAdmin, Camiones):
             self.treeCamiones.delete(item)
 
         camiones = self.cargarCamiones()
-        
+
         for c in camiones:
-            self.treeCamiones.insert('', 'end', values=(
-                c.get("idCamion", ""),
-                c.get("Patente", ""),
-                c.get("Marca", ""),
-                c.get("Modelo", ""),
-                c.get("Ingreso", ""),
-                c.get("Disponible", "")
-            ))
+            if c.get("Disponible", "").lower() == "si":
+                self.treeCamiones.insert('', 'end', values=(
+                    c.get("Patente", ""),
+                    c.get("Marca", ""),
+                    c.get("Modelo", ""),
+                    c.get("Ingreso", ""),
+                    c.get("Disponible", "")
+                ))
 
     def accionEliminarCamiones(self):
         # Revisa si estas seleccionando algun elemento del árbol
@@ -706,14 +710,21 @@ class InfoCamiones(MenuAdmin, Camiones):
         Label(contenedorFormulario, text="Patente:", bg="orange").grid(row=0, column=0, sticky=E, pady=5)
         Entry(contenedorFormulario, textvariable=patente_var).grid(row=0, column=1, pady=5)
 
+        # Menú desplegable de marcas
         Label(contenedorFormulario, text="Marca:", bg="orange").grid(row=1, column=0, sticky=E, pady=5)
-        Entry(contenedorFormulario, textvariable=marca_var).grid(row=1, column=1, pady=5)
+        marcas = self.cargarMarcas()
+        marca_combo = Combobox(contenedorFormulario, textvariable=marca_var, values=marcas, state="readonly")
+        marca_combo.grid(row=1, column=1, pady=5)
+        if marca in marcas:
+            marca_combo.set(marca)
+        elif marcas:
+            marca_combo.current(0)
 
         Label(contenedorFormulario, text="Modelo:", bg="orange").grid(row=2, column=0, sticky=E, pady=5)
         Entry(contenedorFormulario, textvariable=modelo_var).grid(row=2, column=1, pady=5)
 
         def guardarCamion():
-            # Aquí puedes actualizar el camión en tu JSON usando los nuevos valores
+            # Actualiza el camión en tu JSON usando los nuevos valores
             self.actualizarCamion(patente_var.get(), marca_var.get(), modelo_var.get())
 
         Button(contenedorFormulario, text="Guardar", command=guardarCamion).grid(row=3, column=0, columnspan=2, pady=15)
@@ -724,7 +735,7 @@ class InfoCamiones(MenuAdmin, Camiones):
         imagenLabel = Label(self.root, image=self.imagen)
         imagenLabel.pack(side=LEFT, fill="both", expand=TRUE)
 
-    def actualizarCamion(self, Patente, marca, modelo):    
+    def actualizarCamion(self, Patente, marca, modelo):
         camiones = self.cargarCamiones()
         letra = [chr(i) for i in range(ord('A'), ord('Z')+1)]
         asignado = False
@@ -779,6 +790,350 @@ class InfoCamiones(MenuAdmin, Camiones):
             else:
                 messagebox.showerror("Error", "No se pudo asignar un ID.")
 
+    def mostrarCamionesNoDisponibles(self):
+        self.limpiarWidgets()
+        self.barraHorizontal = Frame(self.root, bg="orange", height=50)
+        self.barraHorizontal.pack(side=TOP, fill=X)
+
+        Button(self.barraHorizontal, text="Liberar camión", command=self.liberarCamion, bg="white", fg="black",
+               font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
+        Button(self.barraHorizontal, text="Enviar a mantención", command=self.mostrarCamionesDisponibles, bg="white", fg="black",
+               font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
+        Button(self.barraHorizontal, text="Volver", command=self.mostrarMenuHorizontalCamiones, bg="white", fg="black",
+               font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
+
+        # Botón Detalles (inicialmente deshabilitado)
+        self.botonDetalles = Button(self.barraHorizontal, text="Detalles", command=self.mostrarDetallesCamionMantencion,
+                                    bg="white", fg="black", font=("Montserrat", 12), state=DISABLED)
+        self.botonDetalles.pack(side=LEFT, padx=10, pady=10)
+
+        self.contenedorListaMantencion = Frame(self.root)
+        self.contenedorListaMantencion.pack(fill=BOTH, expand=True, padx=20, pady=20)
+
+        # Agrega la columna Asunto
+        columnas = ("ID", "Patente", "Marca", "Modelo", "Fecha de ingreso", "Disponible", "Asunto")
+        self.treeMantencion = ttk.Treeview(self.contenedorListaMantencion, columns=columnas, show='headings')
+
+        for col in columnas:
+            self.treeMantencion.heading(col, text=col)
+            self.treeMantencion.column(col, width=120, anchor='center')
+
+        self.treeMantencion.pack(fill=BOTH, expand=True)
+
+        # Cargar solo camiones no disponibles
+        camiones = self.cargarCamiones()
+        for c in camiones:
+            if c.get("Disponible", "").lower() == "no":
+                self.treeMantencion.insert('', 'end', values=(
+                    c.get("idCamion", ""),
+                    c.get("Patente", ""),
+                    c.get("Marca", ""),
+                    c.get("Modelo", ""),
+                    c.get("Ingreso", ""),
+                    c.get("Disponible", ""),
+                    c.get("Asunto", "")
+                ))
+
+        # Habilitar el botón Detalles solo si hay selección
+        def on_select(event):
+            seleccion = self.treeMantencion.selection()
+            if seleccion:
+                self.botonDetalles.config(state=NORMAL)
+            else:
+                self.botonDetalles.config(state=DISABLED)
+
+        self.treeMantencion.bind("<<TreeviewSelect>>", on_select)
+
+        # Fondo de la ventana
+        self.imagen = PhotoImage(file="C:/Users/Crist/Documents/TransporteXpress/TransporteXpress/Imagenes/camionbg.png")
+        imagenLabel = Label(self.root, image=self.imagen)
+        imagenLabel.pack(side=LEFT, fill="both", expand=TRUE)
+
+    def mostrarDetallesCamionMantencion(self):
+        seleccion = self.treeMantencion.selection()
+        if not seleccion:
+            messagebox.showwarning("Advertencia", "Debe seleccionar un camión para ver detalles.")
+            return
+        item = seleccion[0]
+        valores = self.treeMantencion.item(item, "values")
+
+        self.limpiarWidgets()
+        contenedorDetalles = Frame(self.root, bg="orange")
+        contenedorDetalles.pack(padx=20, pady=20)
+
+        # Mostrar los datos del camión solo como texto
+        Label(contenedorDetalles, text="ID:", bg="orange").grid(row=0, column=0, sticky=E, pady=5)
+        Label(contenedorDetalles, text=valores[0], bg="orange").grid(row=0, column=1, pady=5)
+
+        Label(contenedorDetalles, text="Patente:", bg="orange").grid(row=1, column=0, sticky=E, pady=5)
+        Label(contenedorDetalles, text=valores[1], bg="orange").grid(row=1, column=1, pady=5)
+
+        Label(contenedorDetalles, text="Marca:", bg="orange").grid(row=2, column=0, sticky=E, pady=5)
+        Label(contenedorDetalles, text=valores[2], bg="orange").grid(row=2, column=1, pady=5)
+
+        Label(contenedorDetalles, text="Modelo:", bg="orange").grid(row=3, column=0, sticky=E, pady=5)
+        Label(contenedorDetalles, text=valores[3], bg="orange").grid(row=3, column=1, pady=5)
+
+        Label(contenedorDetalles, text="Fecha de ingreso:", bg="orange").grid(row=4, column=0, sticky=E, pady=5)
+        Label(contenedorDetalles, text=valores[4], bg="orange").grid(row=4, column=1, pady=5)
+
+        Label(contenedorDetalles, text="Disponible:", bg="orange").grid(row=5, column=0, sticky=E, pady=5)
+        Label(contenedorDetalles, text=valores[5], bg="orange").grid(row=5, column=1, pady=5)
+
+        # Buscar datos previos de asunto y detalle en el JSON
+        camiones = self.cargarCamiones()
+        asunto_existente = ""
+        detalle_existente = ""
+        for c in camiones:
+            if c.get("idCamion") == valores[0]:
+                asunto_existente = c.get("Asunto", "")
+                detalle_existente = c.get("Detalle", "")
+                break
+
+        # Campos para asunto y detalle
+        Label(contenedorDetalles, text="Asunto:", bg="orange").grid(row=6, column=0, sticky=E, pady=5)
+        asunto_var = StringVar(value=asunto_existente)
+        Entry(contenedorDetalles, textvariable=asunto_var, width=40).grid(row=6, column=1, pady=5)
+
+        Label(contenedorDetalles, text="Detalle (máx 200 caracteres):", bg="orange").grid(row=7, column=0, sticky=E, pady=5)
+        detalle_text = Text(contenedorDetalles, width=40, height=4, wrap="word")
+        detalle_text.grid(row=7, column=1, pady=5)
+        detalle_text.insert("1.0", detalle_existente)
+
+        # Función para limitar caracteres en el Text
+        def limitar_caracteres(event):
+            contenido = detalle_text.get("1.0", "end-1c")
+            if len(contenido) > 200:
+                detalle_text.delete("1.0", "end")
+                detalle_text.insert("1.0", contenido[:200])
+                return "break"
+
+        detalle_text.bind("<KeyRelease>", limitar_caracteres)
+
+        # Botón para guardar asunto y detalle
+        def guardar_detalle():
+            asunto = asunto_var.get().strip()
+            detalle = detalle_text.get("1.0", "end-1c").strip()
+            if not asunto or not detalle:
+                messagebox.showerror("Error", "Debe ingresar asunto y detalle.")
+                return
+            for c in camiones:
+                if c.get("idCamion") == valores[0]:
+                    c["Asunto"] = asunto
+                    c["Detalle"] = detalle
+                    break
+            self.guardarCamiones(camiones)
+            messagebox.showinfo("Éxito", "Detalle de mantención guardado correctamente.")
+            self.mostrarCamionesNoDisponibles()
+
+        Button(contenedorDetalles, text="Guardar", command=guardar_detalle).grid(row=8, column=0, pady=15, padx=10)
+        Button(contenedorDetalles, text="Volver", command=self.mostrarCamionesNoDisponibles).grid(row=8, column=1, pady=15, padx=10)
+
+        # Fondo de la ventana
+        self.imagen = PhotoImage(file="C:/Users/Crist/Documents/TransporteXpress/TransporteXpress/Imagenes/camionbg.png")
+        imagenLabel = Label(self.root, image=self.imagen)
+        imagenLabel.pack(side=LEFT, fill="both", expand=TRUE)
+
+    def mostrarCamionesDisponibles(self):
+        self.limpiarWidgets()
+        self.barraHorizontal = Frame(self.root, bg="orange", height=50)
+        self.barraHorizontal.pack(side=TOP, fill=X)
+
+        Button(self.barraHorizontal, text="Enviar a mantención", command=self.enviarAMantencion, bg="white", fg="black",
+               font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
+        Button(self.barraHorizontal, text="Volver", command=self.mostrarCamionesNoDisponibles, bg="white", fg="black",
+               font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
+
+        self.contenedorListaDisponibles = Frame(self.root)
+        self.contenedorListaDisponibles.pack(fill=BOTH, expand=True, padx=20, pady=20)
+
+        columnas = ("ID", "Patente", "Marca", "Modelo", "Fecha de ingreso", "Disponible")
+        self.treeDisponibles = ttk.Treeview(self.contenedorListaDisponibles, columns=columnas, show='headings')
+
+        for col in columnas:
+            self.treeDisponibles.heading(col, text=col)
+            self.treeDisponibles.column(col, width=120, anchor='center')
+
+        self.treeDisponibles.pack(fill=BOTH, expand=True)
+
+        # Cargar solo camiones disponibles
+        camiones = self.cargarCamiones()
+        for c in camiones:
+            if c.get("Disponible", "").lower() == "si":
+                self.treeDisponibles.insert('', 'end', values=(
+                    c.get("idCamion", ""),
+                    c.get("Patente", ""),
+                    c.get("Marca", ""),
+                    c.get("Modelo", ""),
+                    c.get("Ingreso", ""),
+                    c.get("Disponible", "")
+                ))
+
+        # Fondo de la ventana
+        self.imagen = PhotoImage(file="C:/Users/Crist/Documents/TransporteXpress/TransporteXpress/Imagenes/camionbg.png")
+        imagenLabel = Label(self.root, image=self.imagen)
+        imagenLabel.pack(side=LEFT, fill="both", expand=TRUE)
+
+    def enviarAMantencion(self):
+        seleccion = self.treeDisponibles.selection()
+        if not seleccion:
+            messagebox.showwarning("Advertencia", "Debe seleccionar un camión para enviar a mantención.")
+            return
+        item = seleccion[0]
+        valores = self.treeDisponibles.item(item, "values")
+        id_camion = valores[0]
+
+        camiones = self.cargarCamiones()
+        encontrado = False
+        for c in camiones:
+            if c.get("idCamion") == id_camion:
+                c["Disponible"] = "No"
+                encontrado = True
+                break
+        if encontrado:
+            self.guardarCamiones(camiones)
+            messagebox.showinfo("Éxito", "El camión ha sido enviado a mantención.")
+            self.mostrarCamionesDisponibles()
+        else:
+            messagebox.showerror("Error", "No se encontró el camión seleccionado.")
+
+    def liberarCamion(self):
+        seleccion = self.treeMantencion.selection()
+        if not seleccion:
+            messagebox.showwarning("Advertencia", "Debe seleccionar un camión para liberar.")
+            return
+        item = seleccion[0]
+        valores = self.treeMantencion.item(item, "values")
+        id_camion = valores[0]
+
+        camiones = self.cargarCamiones()
+        encontrado = False
+        for c in camiones:
+            if c.get("idCamion") == id_camion:
+                c["Disponible"] = "Si"
+                c["Asunto"] = ""
+                c["Detalle"] = ""
+                encontrado = True
+                break
+        if encontrado:
+            self.guardarCamiones(camiones)
+            messagebox.showinfo("Éxito", "El camión ha sido liberado y ahora está disponible.")
+            self.mostrarCamionesNoDisponibles()
+        else:
+            messagebox.showerror("Error", "No se encontró el camión seleccionado.")
+
+    def mostrarCrudMarcas(self):
+        self.limpiarWidgets()
+        self.barraHorizontal = Frame(self.root, bg="orange", height=50)
+        self.barraHorizontal.pack(side=TOP, fill=X)
+
+        Button(self.barraHorizontal, text="Agregar marca", command=self.formularioAgregarMarca, bg="white", fg="black",
+               font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
+        Button(self.barraHorizontal, text="Editar marca", command=self.formularioEditarMarca, bg="white", fg="black",
+               font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)  # Nuevo botón
+        Button(self.barraHorizontal, text="Eliminar marca", command=self.eliminarMarca, bg="white", fg="black",
+               font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
+        Button(self.barraHorizontal, text="Volver", command=self.mostrarMenuHorizontalCamiones, bg="white", fg="black",
+               font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
+
+        self.contenedorListaMarcas = Frame(self.root)
+        self.contenedorListaMarcas.pack(fill=BOTH, expand=True, padx=20, pady=20)
+
+        columnas = ("Marca",)
+        self.treeMarcas = ttk.Treeview(self.contenedorListaMarcas, columns=columnas, show='headings')
+        self.treeMarcas.heading("Marca", text="Marca")
+        self.treeMarcas.column("Marca", width=200, anchor='center')
+        self.treeMarcas.pack(fill=BOTH, expand=True)
+
+        # Cargar y mostrar marcas
+        marcas = self.cargarMarcas()
+        for marca in marcas:
+            self.treeMarcas.insert('', 'end', values=(marca,))
+
+    def formularioAgregarMarca(self):
+        top = Toplevel(self.root)
+        top.title("Agregar Marca")
+        Label(top, text="Marca:").pack(padx=10, pady=10)
+        marca_var = StringVar()
+        Entry(top, textvariable=marca_var).pack(padx=10, pady=10)
+        def guardar():
+            marca = marca_var.get().strip()
+            if not marca:
+                messagebox.showerror("Error", "Ingrese una marca.")
+                return
+            marcas = self.cargarMarcas()
+            if marca in marcas:
+                messagebox.showerror("Error", "La marca ya existe.")
+                return
+            marcas.append(marca)
+            self.guardarMarcas(marcas)
+            messagebox.showinfo("Éxito", "Marca agregada correctamente.")
+            top.destroy()
+            self.mostrarCrudMarcas()
+        Button(top, text="Guardar", command=guardar).pack(pady=10)
+
+    def eliminarMarca(self):
+        seleccion = self.treeMarcas.selection()
+        if not seleccion:
+            messagebox.showwarning("Advertencia", "Debe seleccionar una marca para eliminar.")
+            return
+        item = seleccion[0]
+        marca = self.treeMarcas.item(item, "values")[0]
+        confirmar = messagebox.askyesno("Confirmar", f"¿Está seguro que desea eliminar la marca '{marca}'?")
+        if not confirmar:
+            return
+        marcas = self.cargarMarcas()
+        marcas = [m for m in marcas if m != marca]
+        self.guardarMarcas(marcas)
+        messagebox.showinfo("Éxito", "Marca eliminada correctamente.")
+        self.mostrarCrudMarcas()
+
+    def formularioEditarMarca(self):
+        seleccion = self.treeMarcas.selection()
+        if not seleccion:
+            messagebox.showwarning("Advertencia", "Debe seleccionar una marca para editar.")
+            return
+        item = seleccion[0]
+        marca_actual = self.treeMarcas.item(item, "values")[0]
+
+        top = Toplevel(self.root)
+        top.title("Editar Marca")
+        Label(top, text="Nueva marca:").pack(padx=10, pady=10)
+        marca_var = StringVar(value=marca_actual)
+        Entry(top, textvariable=marca_var).pack(padx=10, pady=10)
+        def guardar():
+            nueva_marca = marca_var.get().strip()
+            if not nueva_marca:
+                messagebox.showerror("Error", "Ingrese una marca.")
+                return
+            marcas = self.cargarMarcas()
+            if nueva_marca in marcas and nueva_marca != marca_actual:
+                messagebox.showerror("Error", "La marca ya existe.")
+                return
+            # Actualiza la marca en la lista de marcas
+            marcas = [nueva_marca if m == marca_actual else m for m in marcas]
+            self.guardarMarcas(marcas)
+            # Actualiza la marca en los camiones existentes
+            camiones = self.cargarCamiones()
+            for c in camiones:
+                if c.get("Marca") == marca_actual:
+                    c["Marca"] = nueva_marca
+            self.guardarCamiones(camiones)
+            messagebox.showinfo("Éxito", "Marca editada correctamente.")
+            top.destroy()
+            self.mostrarCrudMarcas()
+        Button(top, text="Guardar", command=guardar).pack(pady=10)
+
+    def cargarMarcas(self):
+        if not os.path.exists('marcas.json'):
+            return []
+        with open('marcas.json', 'r') as file:
+            return json.load(file)
+
+    def guardarMarcas(self, marcas):
+        with open('marcas.json', 'w') as file:
+            json.dump(marcas, file, indent=4)
+
 class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
     def __init__(self, root, nombreUsuarioSesionActual):
         Clientes.__init__(self)  # Inicializa las variables de Clientes
@@ -796,6 +1151,7 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
 
         botones = [
             ("Editar perfil", self.editarPerfil),
+            ("Carrito", self.mostrarCarrito),  # <-- Nuevo botón
             ("Volver", self.salir)
         ]
 
@@ -805,7 +1161,7 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
             self.contenedorMenu = Frame(self.root)
             self.contenedorMenu.pack(expand=True)
 
-        Button(self.barraHorizontal, text="Eliminar usuario", command=self.eliminarUsuario,font=("Montserrat", 12)).pack(side=RIGHT, padx=10, pady=10)
+        Button(self.barraHorizontal, text="Eliminar usuario", command=self.eliminarUsuario, font=("Montserrat", 12)).pack(side=RIGHT, padx=10, pady=10)
 
         # Contenedor para la lista de conductores debajo de la barra
         self.contenedorListaCamiones = Frame(self.root)
@@ -838,13 +1194,14 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
         camiones = self.cargarCamiones()
 
         for c in camiones:
-            self.treeCamiones.insert('', 'end', values=(
-                c.get("Patente", ""),
-                c.get("Marca", ""),
-                c.get("Modelo", ""),
-                c.get("Ingreso", ""),
-                c.get("Disponible", "")
-            ))
+            if c.get("Disponible", "").lower() == "si":
+                self.treeCamiones.insert('', 'end', values=(
+                    c.get("Patente", ""),
+                    c.get("Marca", ""),
+                    c.get("Modelo", ""),
+                    c.get("Ingreso", ""),
+                    c.get("Disponible", "")
+                ))
 
     def camionesDispobibles(self):
         pass
@@ -855,21 +1212,37 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
 
     def validarRut(self, rut):
         # Elimina guiones y puntos
-        rut = rut.replace("-", "").replace(".", "")
-        
-        # Debe tener 8 o 9 dígitos y solo números
-        if not rut.isdigit() or not (8 <= len(rut) <= 9):
-            messagebox.showerror("Error", "El RUT debe tener entre 8 y 9 dígitos.")
+        rut = rut.replace("-", "").replace(".", "").upper()
+        if not (8 <= len(rut) <= 9):
+            messagebox.showerror("Error", "El RUT debe tener entre 8 y 9 caracteres.")
             return False
 
-        # No puede ser una secuencia de dígitos repetidos
-        elif rut == len(rut) * rut[0]:
-            messagebox.showerror("Error", "El RUT no puede ser una secuencia de dígitos repetidos.")
+        cuerpo = rut[:-1]
+        dv = rut[-1]
+
+        if not cuerpo.isdigit():
+            messagebox.showerror("Error", "El RUT debe tener solo números en la parte numérica.")
             return False
 
-        # No puede ser secuencia ascendente o descendente
-        if rut in "0123456789" or rut in "9876543210":
-            messagebox.showerror("Error", "El RUT no puede ser una secuencia ascendente o descendente.")
+        # Calcular dígito verificador usando módulo 11
+        suma = 0
+        multiplo = 2
+        for c in reversed(cuerpo):
+            suma += int(c) * multiplo
+            multiplo = 9 if multiplo == 7 else multiplo + 1
+            if multiplo > 7:
+                multiplo = 2
+        resto = suma % 11
+        dv_calculado = 11 - resto
+        if dv_calculado == 11:
+            dv_calculado = '0'
+        elif dv_calculado == 10:
+            dv_calculado = 'K'
+        else:
+            dv_calculado = str(dv_calculado)
+
+        if dv != dv_calculado:
+            messagebox.showerror("Error", f"El dígito verificador es incorrecto. Debe ser {dv_calculado}.")
             return False
 
         # Verificar si el RUT ya existe (excepto para el usuario actual)
@@ -1072,6 +1445,69 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
                 usuario.get("Correo Electrónico", ""),
                 usuario.get("Dirección", "")
             ))
+
+    def mostrarCarrito(self):
+        self.limpiarWidgets()
+        self.barraHorizontal = Frame(self.root, bg="orange", height=50)
+        self.barraHorizontal.pack(side=TOP, fill=X)
+
+        Button(self.barraHorizontal, text="Arrendar camión", command=self.arrendarCamion, bg="white", fg="black",
+               font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
+        Button(self.barraHorizontal, text="Volver", command=self.menuInicial, bg="white", fg="black",
+               font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
+
+        self.contenedorCarrito = Frame(self.root)
+        self.contenedorCarrito.pack(fill=BOTH, expand=True, padx=20, pady=20)
+
+        columnas = ("ID", "Patente", "Marca", "Modelo", "Fecha de ingreso", "Disponible")
+        self.treeCarrito = ttk.Treeview(self.contenedorCarrito, columns=columnas, show='headings')
+
+        for col in columnas:
+            self.treeCarrito.heading(col, text=col)
+            self.treeCarrito.column(col, width=120, anchor='center')
+
+        self.treeCarrito.pack(fill=BOTH, expand=True)
+
+        # Cargar solo camiones disponibles
+        camiones = self.cargarCamiones()
+        for c in camiones:
+            if c.get("Disponible", "").lower() == "si":
+                self.treeCarrito.insert('', 'end', values=(
+                    c.get("idCamion", ""),
+                    c.get("Patente", ""),
+                    c.get("Marca", ""),
+                    c.get("Modelo", ""),
+                    c.get("Ingreso", ""),
+                    c.get("Disponible", "")
+                ))
+
+        # Fondo de la ventana
+        self.imagen = PhotoImage(file="C:/Users/Crist/Documents/TransporteXpress/TransporteXpress/Imagenes/camionbg.png")
+        imagenLabel = Label(self.root, image=self.imagen)
+        imagenLabel.pack(side=LEFT, fill="both", expand=TRUE)
+
+    def arrendarCamion(self):
+        seleccion = self.treeCarrito.selection()
+        if not seleccion:
+            messagebox.showwarning("Advertencia", "Debe seleccionar un camión para arrendar.")
+            return
+        item = seleccion[0]
+        valores = self.treeCarrito.item(item, "values")
+        id_camion = valores[0]
+
+        camiones = self.cargarCamiones()
+        encontrado = False
+        for c in camiones:
+            if c.get("idCamion") == id_camion and c.get("Disponible", "").lower() == "si":
+                c["Disponible"] = "En arriendo"
+                encontrado = True
+                break
+        if encontrado:
+            self.guardarCamiones(camiones)
+            messagebox.showinfo("Éxito", "Camión arrendado correctamente.")
+            self.mostrarCarrito()
+        else:
+            messagebox.showerror("Error", "No se pudo arrendar el camión seleccionado.")
 
 # Clase principal para ejecutar la aplicación
 if __name__=="__main__":
