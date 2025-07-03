@@ -3,10 +3,10 @@ from tkinter import ttk, messagebox, StringVar
 from datetime import datetime, timedelta
 from conductores import Conductores
 from tkcalendar import DateEntry
+from tkinter.ttk import Combobox
 from clientes import Clientes
 from camiones import Camiones
 from datetime import datetime
-from tkinter.ttk import Combobox
 from tkinter import *
 import json
 import re
@@ -98,7 +98,7 @@ class InicioSesionApp:
                 # Limpiar widgets actuales
                 for widget in self.root.winfo_children(): # winfo_children devuelve la lista con todos los widgets de un contenedor.
                     widget.destroy()
-  
+
                 if nombre == 'admin':
                     # Llamar a otra función que construya nueva interfaz
                     self.root.after(50, lambda: MenuAdmin(self.root)) # Permite a acceder al menu sin errores
@@ -132,7 +132,7 @@ class InicioSesionApp:
             if usuario['nombre'] == nombre:
                 messagebox.showerror('Error', 'El usuario ya existe')
                 return False
-  
+
         usuarios.append({'nombre': nombre, 'contrasenia': contrasenia}) #Agregar a librería que después se convierte en JSON.
         self.guardarUsuarios(usuarios)
         messagebox.showinfo('Registro', 'Usuario registrado exitosamente')
@@ -464,6 +464,7 @@ class MenuAdmin(Conductores, Camiones):
         if not seleccion:
             messagebox.showwarning("Advertencia", "Debe seleccionar un conductor para eliminar.")
             return
+
         # Obtiene el RUT del conductor seleccionado (columna 0)
         item = seleccion[0]
         valores = self.treeConductores.item(item, "values")
@@ -506,11 +507,11 @@ class InfoCamiones(MenuAdmin, Camiones):
 
         with open('camiones.json', 'r') as file: # Manejo seguro de archivos, r(read) significa que es solo para lectura.
             return json.load(file) # Convierte el contenido del archivo JSON en un diccionario de python, si quisieramos hacer el caso opuesto deberíamos usar json.dumps
-    
+
     def guardarCamiones(self, camiones):
         with open('camiones.json', 'w') as file:
             json.dump(camiones, file, indent=4)
-        
+
     def mostrarMenuHorizontalCamiones(self):
         self.limpiarWidgets()
         self.barraHorizontal = Frame(self.root, bg="orange", height=50)
@@ -522,6 +523,7 @@ class InfoCamiones(MenuAdmin, Camiones):
             ("Eliminar", self.accionEliminarCamiones),
             ("Mantención", self.mostrarCamionesNoDisponibles),
             ("Marcas", self.mostrarCrudMarcas),
+            ("Modelos", self.mostrarCrudModelos),
             ("Volver", self.volverBotones)
         ]
 
@@ -530,7 +532,7 @@ class InfoCamiones(MenuAdmin, Camiones):
                 font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
             self.contenedor_menu = Frame(self.root)
             self.contenedor_menu.pack(expand=True)
-        
+
         # Contenedor para la lista de camiones debajo de la barra
         self.contenedorListaCamiones = Frame(self.root)
         self.contenedorListaCamiones.pack(fill=BOTH, expand=True, padx=20, pady=20)
@@ -570,17 +572,35 @@ class InfoCamiones(MenuAdmin, Camiones):
         # Cargar marcas
         marcas = self.cargarMarcas()
         self.marca_var = StringVar()
+        self.modelo_var = StringVar()  # <-- Asegúrate de declarar esto aquí
+
         Label(contenedorFormularioCamion, text="Marca:", bg="orange").grid(row=1, column=0, sticky=E, pady=5)
         marca_combo = Combobox(contenedorFormularioCamion, textvariable=self.marca_var, values=marcas, state="readonly")
         marca_combo.grid(row=1, column=1, pady=5)
         if marcas:
             marca_combo.current(0)
 
-        # El resto de tu formulario igual...
         Label(contenedorFormularioCamion, text="Patente:", bg="orange").grid(row=0, column=0, sticky=E, pady=5)
         Entry(contenedorFormularioCamion, textvariable=self.patente).grid(row=0, column=1, pady=5)
+
         Label(contenedorFormularioCamion, text="Modelo:", bg="orange").grid(row=2, column=0, sticky=E, pady=5)
-        Entry(contenedorFormularioCamion, textvariable=self.modelo).grid(row=2, column=1, pady=5)
+        modelos_dict = self.cargarModelos()
+        modelos_inicial = modelos_dict.get(self.marca_var.get(), [])
+        modelo_combo = Combobox(contenedorFormularioCamion, textvariable=self.modelo_var, values=modelos_inicial, state="readonly")
+        modelo_combo.grid(row=2, column=1, pady=5)
+        if modelos_inicial:
+            modelo_combo.current(0)
+
+        def actualizar_modelos(*args):
+            modelos_actualizados = self.cargarModelos().get(self.marca_var.get(), [])
+            modelo_combo['values'] = modelos_actualizados
+            if modelos_actualizados:
+                modelo_combo.current(0)
+                self.modelo_var.set(modelos_actualizados[0])
+            else:
+                self.modelo_var.set("")
+
+        self.marca_var.trace('w', actualizar_modelos)
 
         # Botón para guardar
         Button(contenedorFormularioCamion, text="Guardar", command=self.guardarCamion).grid(row=7, column=0, columnspan=2, pady=15, ipadx=10, padx=20)
@@ -627,7 +647,7 @@ class InfoCamiones(MenuAdmin, Camiones):
     def guardarCamion(self):
         patente = self.patente.get().strip()
         marca = self.marca_var.get().strip()
-        modelo = self.modelo.get().strip()
+        modelo = self.modelo_var.get().strip()
 
         if not self.validarCamion(patente, marca, modelo):
             return
@@ -650,6 +670,24 @@ class InfoCamiones(MenuAdmin, Camiones):
                     c.get("Ingreso", ""),
                     c.get("Disponible", "")
                 ))
+
+    def listaCamionesCompletos(self):
+        # Limpia la tabla antes de cargar datos nuevos
+        for item in self.treeCamiones.get_children():
+            self.treeCamiones.delete(item)
+
+        camiones = self.cargarCamiones()
+
+        for c in camiones:
+            # Muestra TODOS los camiones, sin filtrar por "Disponible"
+            self.treeCamiones.insert('', 'end', values=(
+                c.get("idCamion", ""),
+                c.get("Patente", ""),
+                c.get("Marca", ""),
+                c.get("Modelo", ""),
+                c.get("Ingreso", ""),
+                c.get("Disponible", "")
+            ))
 
     def accionEliminarCamiones(self):
         # Revisa si estas seleccionando algun elemento del árbol
@@ -680,7 +718,7 @@ class InfoCamiones(MenuAdmin, Camiones):
         self.guardarCamiones(nuevos_camiones)
 
         # Refresca la tabla
-        self.listaCamiones()
+        self.listaCamionesCompletos()
         messagebox.showinfo("Éxito", f"Camión con patente {patente_a_eliminar} eliminado correctamente.")
 
     def editarCamion(self):
@@ -721,7 +759,14 @@ class InfoCamiones(MenuAdmin, Camiones):
             marca_combo.current(0)
 
         Label(contenedorFormulario, text="Modelo:", bg="orange").grid(row=2, column=0, sticky=E, pady=5)
-        Entry(contenedorFormulario, textvariable=modelo_var).grid(row=2, column=1, pady=5)
+        modelos_dict = self.cargarModelos()
+        modelos_inicial = modelos_dict.get(marca, [])
+        modelo_combo = Combobox(contenedorFormulario, textvariable=modelo_var, values=modelos_inicial, state="readonly")
+        modelo_combo.grid(row=2, column=1, pady=5)
+        if modelo in modelos_inicial:
+            modelo_combo.set(modelo)
+        elif modelos_inicial:
+            modelo_combo.current(0)
 
         def guardarCamion():
             # Actualiza el camión en tu JSON usando los nuevos valores
@@ -1134,6 +1179,132 @@ class InfoCamiones(MenuAdmin, Camiones):
         with open('marcas.json', 'w') as file:
             json.dump(marcas, file, indent=4)
 
+    def mostrarCrudModelos(self):
+        self.limpiarWidgets()
+        self.barraHorizontal = Frame(self.root, bg="orange", height=50)
+        self.barraHorizontal.pack(side=TOP, fill=X)
+
+        Button(self.barraHorizontal, text="Agregar modelo", command=self.formularioAgregarModelo, bg="white", fg="black",
+               font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
+        Button(self.barraHorizontal, text="Editar modelo", command=self.formularioEditarModelo, bg="white", fg="black",
+               font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
+        Button(self.barraHorizontal, text="Eliminar modelo", command=self.eliminarModelo, bg="white", fg="black",
+               font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
+        Button(self.barraHorizontal, text="Volver", command=self.mostrarMenuHorizontalCamiones, bg="white", fg="black",
+               font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
+
+        self.contenedorListaModelos = Frame(self.root)
+        self.contenedorListaModelos.pack(fill=BOTH, expand=True, padx=20, pady=20)
+
+        columnas = ("Marca", "Modelo")
+        self.treeModelos = ttk.Treeview(self.contenedorListaModelos, columns=columnas, show='headings')
+        for col in columnas:
+            self.treeModelos.heading(col, text=col)
+            self.treeModelos.column(col, width=150, anchor='center')
+        self.treeModelos.pack(fill=BOTH, expand=True)
+
+        # Cargar y mostrar modelos
+        modelos = self.cargarModelos()
+        for marca, lista_modelos in modelos.items():
+            for modelo in lista_modelos:
+                self.treeModelos.insert('', 'end', values=(marca, modelo))
+
+    def formularioAgregarModelo(self):
+        top = Toplevel(self.root)
+        top.title("Agregar Modelo")
+        Label(top, text="Marca:").pack(padx=10, pady=5)
+        marcas = self.cargarMarcas()
+        marca_var = StringVar()
+        marca_combo = Combobox(top, textvariable=marca_var, values=marcas, state="readonly")
+        marca_combo.pack(padx=10, pady=5)
+        if marcas:
+            marca_combo.current(0)
+        Label(top, text="Modelo:").pack(padx=10, pady=5)
+        modelo_var = StringVar()
+        Entry(top, textvariable=modelo_var).pack(padx=10, pady=5)
+        def guardar():
+            marca = marca_var.get().strip()
+            modelo = modelo_var.get().strip()
+            if not marca or not modelo:
+                messagebox.showerror("Error", "Debe seleccionar una marca y escribir un modelo.")
+                return
+            modelos = self.cargarModelos()
+            if marca not in modelos:
+                modelos[marca] = []
+            if modelo in modelos[marca]:
+                messagebox.showerror("Error", "Ese modelo ya existe para la marca seleccionada.")
+                return
+            modelos[marca].append(modelo)
+            self.guardarModelos(modelos)
+            messagebox.showinfo("Éxito", "Modelo agregado correctamente.")
+            top.destroy()
+            self.mostrarCrudModelos()
+        Button(top, text="Guardar", command=guardar).pack(pady=10)
+
+    def eliminarModelo(self):
+        seleccion = self.treeModelos.selection()
+        if not seleccion:
+            messagebox.showwarning("Advertencia", "Debe seleccionar un modelo para eliminar.")
+            return
+        item = seleccion[0]
+        marca, modelo = self.treeModelos.item(item, "values")
+        modelos = self.cargarModelos()
+        if marca in modelos and modelo in modelos[marca]:
+            modelos[marca].remove(modelo)
+            if not modelos[marca]:
+                del modelos[marca]
+            self.guardarModelos(modelos)
+            messagebox.showinfo("Éxito", "Modelo eliminado correctamente.")
+            self.mostrarCrudModelos()
+
+    def cargarModelos(self):
+        if not os.path.exists('modelos.json'):
+            return {}
+        with open('modelos.json', 'r') as file:
+            return json.load(file)
+
+    def guardarModelos(self, modelos):
+        with open('modelos.json', 'w') as file:
+            json.dump(modelos, file, indent=4)
+
+    def formularioEditarModelo(self):
+        seleccion = self.treeModelos.selection()
+        if not seleccion:
+            messagebox.showwarning("Advertencia", "Debe seleccionar un modelo para editar.")
+            return
+        item = seleccion[0]
+        marca_actual, modelo_actual = self.treeModelos.item(item, "values")
+
+        top = Toplevel(self.root)
+        top.title("Editar Modelo")
+        Label(top, text="Marca:").pack(padx=10, pady=5)
+        Label(top, text=marca_actual).pack(padx=10, pady=5)
+        Label(top, text="Nuevo modelo:").pack(padx=10, pady=5)
+        modelo_var = StringVar(value=modelo_actual)
+        Entry(top, textvariable=modelo_var).pack(padx=10, pady=5)
+        def guardar():
+            nuevo_modelo = modelo_var.get().strip()
+            if not nuevo_modelo:
+                messagebox.showerror("Error", "Ingrese un modelo.")
+                return
+            modelos = self.cargarModelos()
+            if nuevo_modelo in modelos.get(marca_actual, []) and nuevo_modelo != modelo_actual:
+                messagebox.showerror("Error", "Ese modelo ya existe para la marca seleccionada.")
+                return
+            # Actualiza el modelo en la lista de modelos
+            modelos[marca_actual] = [nuevo_modelo if m == modelo_actual else m for m in modelos[marca_actual]]
+            self.guardarModelos(modelos)
+            # Actualiza el modelo en los camiones existentes
+            camiones = self.cargarCamiones()
+            for c in camiones:
+                if c.get("Marca") == marca_actual and c.get("Modelo") == modelo_actual:
+                    c["Modelo"] = nuevo_modelo
+            self.guardarCamiones(camiones)
+            messagebox.showinfo("Éxito", "Modelo editado correctamente.")
+            top.destroy()
+            self.mostrarCrudModelos()
+        Button(top, text="Guardar", command=guardar).pack(pady=10)
+
 class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
     def __init__(self, root, nombreUsuarioSesionActual):
         Clientes.__init__(self)  # Inicializa las variables de Clientes
@@ -1330,6 +1501,7 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
                 self.telefono.set(c.get("Telefono", ""))
                 self.correo.set(c.get("Correo", ""))
                 self.direccion.set(c.get("Direccion", ""))
+                break
 
         # Variables para los campos del formulario
         if self.rut.get() == "":
@@ -1508,7 +1680,7 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
             self.mostrarCarrito()
         else:
             messagebox.showerror("Error", "No se pudo arrendar el camión seleccionado.")
-
+        
 # Clase principal para ejecutar la aplicación
 if __name__=="__main__":
     root = Tk()
