@@ -507,6 +507,7 @@ class InfoCamiones(MenuAdmin, Camiones):
 
         with open('camiones.json', 'r') as file: # Manejo seguro de archivos, r(read) significa que es solo para lectura.
             return json.load(file) # Convierte el contenido del archivo JSON en un diccionario de python, si quisieramos hacer el caso opuesto deberíamos usar json.dumps
+        
 
     def guardarCamiones(self, camiones):
         with open('camiones.json', 'w') as file:
@@ -524,6 +525,7 @@ class InfoCamiones(MenuAdmin, Camiones):
             ("Mantención", self.mostrarCamionesNoDisponibles),
             ("Marcas", self.mostrarCrudMarcas),
             ("Modelos", self.mostrarCrudModelos),
+            ("Tipo de arriendo", self.mostrarCrudTipoArriendo),
             ("Volver", self.volverBotones)
         ]
 
@@ -1033,12 +1035,14 @@ class InfoCamiones(MenuAdmin, Camiones):
         for c in camiones:
             if c.get("idCamion") == id_camion:
                 c["Disponible"] = "No"
+                c["Asunto"] = ""
+                c["Detalle"] = ""
                 encontrado = True
                 break
         if encontrado:
             self.guardarCamiones(camiones)
-            messagebox.showinfo("Éxito", "El camión ha sido enviado a mantención.")
-            self.mostrarCamionesDisponibles()
+            messagebox.showinfo("Éxito", "El camión ha sido liberado y ahora está disponible.")
+            self.mostrarCamionesNoDisponibles()
         else:
             messagebox.showerror("Error", "No se encontró el camión seleccionado.")
 
@@ -1305,6 +1309,317 @@ class InfoCamiones(MenuAdmin, Camiones):
             self.mostrarCrudModelos()
         Button(top, text="Guardar", command=guardar).pack(pady=10)
 
+    def mostrarCrudTipoArriendo(self):
+        self.limpiarWidgets()
+        self.barraHorizontal = Frame(self.root, bg="orange", height=50)
+        self.barraHorizontal.pack(side=TOP, fill=X)
+
+        Button(self.barraHorizontal, text="Agregar tipo", command=self.formularioAgregarTipoArriendo, bg="white", fg="black",
+               font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
+        Button(self.barraHorizontal, text="Editar tipo", command=self.formularioEditarTipoArriendo, bg="white", fg="black",
+               font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
+        Button(self.barraHorizontal, text="Eliminar tipo", command=self.eliminarTipoArriendo, bg="white", fg="black",
+               font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
+        Button(self.barraHorizontal, text="Volver", command=self.mostrarMenuHorizontalCamiones, bg="white", fg="black",
+               font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
+
+        self.contenedorListaTipos = Frame(self.root)
+        self.contenedorListaTipos.pack(fill=BOTH, expand=True, padx=20, pady=20)
+
+        columnas = ("Tipo de arriendo",)
+        self.treeTipos = ttk.Treeview(self.contenedorListaTipos, columns=columnas, show='headings')
+        self.treeTipos.heading("Tipo de arriendo", text="Tipo de arriendo")
+        self.treeTipos.column("Tipo de arriendo", width=200, anchor='center')
+        self.treeTipos.pack(fill=BOTH, expand=True)
+
+        # Cargar y mostrar tipos
+        tipos = self.cargarTiposArriendo()
+        for tipo in tipos:
+            self.treeTipos.insert('', 'end', values=(tipo,))
+
+    def formularioAgregarTipoArriendo(self):
+        top = Toplevel(self.root)
+        top.title("Agregar Tipo de Arriendo")
+        Label(top, text="Tipo de arriendo:").pack(padx=10, pady=10)
+        tipo_var = StringVar()
+        Entry(top, textvariable=tipo_var).pack(padx=10, pady=10)
+        def guardar():
+            tipo = tipo_var.get().strip()
+            if not tipo:
+                messagebox.showerror("Error", "Ingrese un tipo de arriendo.")
+                return
+            tipos = self.cargarTiposArriendo()
+            if tipo in tipos:
+                messagebox.showerror("Error", "Ese tipo ya existe.")
+                return
+            tipos.append(tipo)
+            self.guardarTiposArriendo(tipos)
+            messagebox.showinfo("Éxito", "Tipo de arriendo agregado correctamente.")
+            top.destroy()
+            self.mostrarCrudTipoArriendo()
+        Button(top, text="Guardar", command=guardar).pack(pady=10)
+
+    def formularioEditarTipoArriendo(self):
+        seleccion = self.treeTipos.selection()
+        if not seleccion:
+            messagebox.showwarning("Advertencia", "Debe seleccionar un tipo para editar.")
+            return
+        item = seleccion[0]
+        tipo_actual = self.treeTipos.item(item, "values")[0]
+
+        top = Toplevel(self.root)
+        top.title("Editar Tipo de Arriendo")
+        Label(top, text="Nuevo tipo:").pack(padx=10, pady=10)
+        tipo_var = StringVar(value=tipo_actual)
+        Entry(top, textvariable=tipo_var).pack(padx=10, pady=10)
+        def guardar():
+            nuevo_tipo = tipo_var.get().strip()
+            if not nuevo_tipo:
+                messagebox.showerror("Error", "Ingrese un tipo de arriendo.")
+                return
+            tipos = self.cargarTiposArriendo()
+            if nuevo_tipo in tipos and nuevo_tipo != tipo_actual:
+                messagebox.showerror("Error", "Ese tipo ya existe.")
+                return
+            tipos = [nuevo_tipo if t == tipo_actual else t for t in tipos]
+            self.guardarTiposArriendo(tipos)
+            messagebox.showinfo("Éxito", "Tipo de arriendo editado correctamente.")
+            top.destroy()
+            self.mostrarCrudTipoArriendo()
+        Button(top, text="Guardar", command=guardar).pack(pady=10)
+
+    def eliminarTipoArriendo(self):
+        seleccion = self.treeTipos.selection()
+        if not seleccion:
+            messagebox.showwarning("Advertencia", "Debe seleccionar un tipo para eliminar.")
+            return
+        item = seleccion[0]
+        tipo = self.treeTipos.item(item, "values")[0]
+        confirmar = messagebox.askyesno("Confirmar", f"¿Está seguro que desea eliminar el tipo '{tipo}'?")
+        if not confirmar:
+            return
+        tipos = self.cargarTiposArriendo()
+        tipos = [t for t in tipos if t != tipo]
+        self.guardarTiposArriendo(tipos)
+        messagebox.showinfo("Éxito", "Tipo de arriendo eliminado correctamente.")
+        self.mostrarCrudTipoArriendo()
+
+    def cargarTiposArriendo(self):
+        if not os.path.exists('tipos_arriendo.json'):
+            return []
+        with open('tipos_arriendo.json', 'r') as file:
+            return json.load(file)
+
+    def guardarTiposArriendo(self, tipos):
+        with open('tipos_arriendo.json', 'w') as file:
+            json.dump(tipos, file, indent=4)
+
+    def formularioAgregarCliente(self):
+        self.limpiarWidgets()
+        contenedorFormulario = Frame(self.root, bg="orange")
+        contenedorFormulario.pack(padx=20, pady=20)
+
+        # Etiquetas y entradas
+        Label(contenedorFormulario, text="RUT:", bg="orange").grid(row=0, column=0, sticky=E, pady=5)
+        Entry(contenedorFormulario, textvariable=self.rut).grid(row=0, column=1, pady=5)
+
+        Label(contenedorFormulario, text="Nombre completo:", bg="orange").grid(row=1, column=0, sticky=E, pady=5)
+        Entry(contenedorFormulario, textvariable=self.nombreCompleto).grid(row=1, column=1, pady=5)
+
+        Label(contenedorFormulario, text="Teléfono +56:", bg="orange").grid(row=2, column=0, sticky=E, pady=5)
+        Entry(contenedorFormulario, textvariable=self.telefono).grid(row=2, column=1, pady=5)
+
+        Label(contenedorFormulario, text="Correo:", bg="orange").grid(row=3, column=0, sticky=E, pady=5)
+        Entry(contenedorFormulario, textvariable=self.correo).grid(row=3, column=1, pady=5)
+
+        Label(contenedorFormulario, text="Dirección:", bg="orange").grid(row=4, column=0, sticky=E, pady=5)
+        Entry(contenedorFormulario, textvariable=self.direccion).grid(row=4, column=1, pady=5)
+
+        # Botón para guardar
+        Button(contenedorFormulario, text="Guardar", command=self.formularioGuardarCliente).grid(row=5, column=0, columnspan=2, pady=15)
+        Button(contenedorFormulario, text="Volver", command=self.menuInicial).grid(row=6, column=0, columnspan=2, pady=15)
+
+        # Fondo de la ventana
+        self.imagen = PhotoImage(file="C:/Users/Crist/Documents/TransporteXpress/TransporteXpress/Imagenes/camionbg.png")
+        imagenLabel = Label(self.root, image=self.imagen)
+        imagenLabel.pack(side=LEFT, fill="both", expand=TRUE)
+
+    def formularioGuardarCliente(self):
+        rut = self.rut.get().strip()
+        nombreCompleto = self.nombreCompleto.get().strip()
+        telefono = self.telefono.get().strip()
+        correo = self.correo.get().strip()
+        direccion = self.direccion.get().strip()
+
+        if not all([rut, nombreCompleto, telefono, correo, direccion]):
+            messagebox.showerror("Error", "Todos los campos son obligatorios.")
+            return
+
+        if not self.validarRut(rut):
+            return
+
+        if not self.validarDatos(nombreCompleto, telefono, correo, direccion):
+            return
+
+        self.agregarCliente(rut, nombreCompleto, telefono, correo, direccion)
+
+    def listaClientes(self):
+        # Limpia la tabla antes de cargar datos nuevos
+        for item in self.treeClientes.get_children():
+            self.treeClientes.delete(item)
+
+        clientes = self.cargarUsuarios()  # Método que carga clientes desde JSON
+
+        for c in clientes:
+            self.treeClientes.insert('', 'end', values=(
+                c.get("RUT", ""),
+                c.get("Nombre Completo", ""),
+                c.get("Teléfono", ""),
+                c.get("Correo Electrónico", ""),
+                c.get("Dirección", "")
+            ))
+
+    def mostrarMenuClientes(self):
+        self.limpiarWidgets()
+        self.barraHorizontal = Frame(self.root, bg="orange", height=50)
+        self.barraHorizontal.pack(side=TOP, fill=X)
+
+        Button(self.barraHorizontal, text="Agregar cliente", command=self.formularioAgregarCliente, bg="white", fg="black",
+               font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
+        Button(self.bbarraHorizontal, text="Editar cliente", command=self.accionEditarCliente, bg="white", fg="black",
+               font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
+        Button(self.barraHorizontal, text="Eliminar cliente", command=self.accionEliminarCliente, bg="white", fg="black",
+               font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
+        Button(self.barraHorizontal, text="Volver", command=self.menuInicial, bg="white", fg="black",
+               font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
+
+        self.contenedorListaClientes = Frame(self.root)
+        self.contenedorListaClientes.pack(fill=BOTH, expand=True, padx=20, pady=20)
+
+        columnas = ("RUT", "Nombre completo", "Teléfono", "Correo", "Dirección")
+        self.treeClientes = ttk.Treeview(self.contenedorListaClientes, columns=columnas, show='headings')
+
+        for col in columnas:
+            self.treeClientes.heading(col, text=col)
+            self.treeClientes.column(col, width=120, anchor='center')
+
+        self.treeClientes.pack(fill=BOTH, expand=True)
+
+        # Cargar y mostrar los datos
+        self.listaClientes()
+
+    def accionEditarCliente(self):
+        seleccion = self.treeClientes.selection()
+        if not seleccion:
+            messagebox.showwarning("Advertencia", "Debe seleccionar un cliente para editar.")
+            return
+        item = seleccion[0]
+        valores = self.treeClientes.item(item, "values")
+        rut = valores[0]
+        nombreCompleto = valores[1]
+        telefono = valores[2]
+
+
+        correo = valores[3]
+        direccion = valores[4]
+
+        self.formularioEditarCliente(rut, nombreCompleto, telefono, correo, direccion)
+
+    def formularioEditarCliente(self, rut, nombreCompleto, telefono, correo, direccion):
+        self.limpiarWidgets()
+        contenedorFormulario = Frame(self.root, bg="orange")
+        contenedorFormulario.pack(padx=20, pady=20)
+
+        # Rellena el formulario con los datos del cliente seleccionado
+        self.rut.set(rut)
+        self.nombreCompleto.set(nombreCompleto)
+        self.telefono.set(telefono)
+        self.correo.set(correo)
+        self.direccion.set(direccion)
+
+        Label(contenedorFormulario, text="RUT:", bg="orange").grid(row=0, column=0, sticky=E, pady=5)
+        Entry(contenedorFormulario, textvariable=self.rut, state='readonly').grid(row=0, column=1, pady=5)
+
+        Label(contenedorFormulario, text="Nombre completo:", bg="orange").grid(row=1, column=0, sticky=E, pady=5)
+        Entry(contenedorFormulario, textvariable=self.nombreCompleto).grid(row=1, column=1, pady=5)
+
+        Label(contenedorFormulario, text="Teléfono +56:", bg="orange").grid(row=2, column=0, sticky=E, pady=5)
+        Entry(contenedorFormulario, textvariable=self.telefono).grid(row=2, column=1, pady=5)
+
+        Label(contenedorFormulario, text="Correo:", bg="orange").grid(row=3, column=0, sticky=E, pady=5)
+        Entry(contenedorFormulario, textvariable=self.correo).grid(row=3, column=1, pady=5)
+
+        Label(contenedorFormulario, text="Dirección:", bg="orange").grid(row=4, column=0, sticky=E, pady=5)
+        Entry(contenedorFormulario, textvariable=self.direccion).grid(row=4, column=1, pady=5)
+
+        # Botón para guardar cambios
+        Button(contenedorFormulario, text="Guardar cambios", command=self.guardarCambiosCliente).grid(row=5, column=0, columnspan=2, pady=15)
+        Button(contenedorFormulario, text="Volver", command=self.mostrarMenuClientes).grid(row=6, column=0, columnspan=2, pady=15)
+
+        # Fondo de la ventana
+        self.imagen = PhotoImage(file="C:/Users/Crist/Documents/TransporteXpress/TransporteXpress/Imagenes/camionbg.png")
+        imagenLabel = Label(self.root, image=self.imagen)
+        imagenLabel.pack(side=LEFT, fill="both", expand=TRUE)
+
+    def guardarCambiosCliente(self):
+        rut = self.rut.get().strip()
+        nombreCompleto = self.nombreCompleto.get().strip()
+        telefono = self.telefono.get().strip()
+        correo = self.correo.get().strip()
+        direccion = self.direccion.get().strip()
+
+        if not all([rut, nombreCompleto, telefono, correo, direccion]):
+            messagebox.showerror("Error", "Todos los campos son obligatorios.")
+            return
+
+        if not self.validarRut(rut):
+            return
+
+        if not self.validarDatos(nombreCompleto, telefono, correo, direccion):
+            return
+
+        clientes = self.cargarUsuarios()
+        for c in clientes:
+            if c.get("RUT") == rut:
+                c["Nombre Completo"] = nombreCompleto
+                c["Telefono"] = telefono
+                c["Correo"] = correo
+                c["Direccion"] = direccion
+                break
+
+        self.guardarUsuarios(clientes)
+        messagebox.showinfo("Éxito", "Cambios guardados correctamente.")
+        self.mostrarMenuClientes()
+
+    def accionEliminarCliente(self):
+        seleccion = self.treeClientes.selection()
+        if not seleccion:
+            messagebox.showwarning("Advertencia", "Debe seleccionar un cliente para eliminar.")
+            return
+        item = seleccion[0]
+        valores = self.treeClientes.item(item, "values")
+        rut_a_eliminar = valores[0]
+
+        #Confirmar con el usuario
+        confirmar = messagebox.askyesno("Confirmar", f"¿Está seguro que desea eliminar el cliente con RUT {rut_a_eliminar}?")
+        if not confirmar:
+            return
+
+        # Cargar la lista de clientes
+        clientes = self.cargarUsuarios()
+
+        # Filtra la lista para eliminar el cliente seleccionado
+        nuevos_clientes = [c for c in clientes if c.get("RUT") != rut_a_eliminar]
+        # Incluye en la lista todos los clientes diferentes al rut a eliminar
+        # "para cada elemento c en la lista clientes, incluye c en la nueva lista solo si cumple la condición después del if"
+
+        # Guarda la lista actualizada
+        self.guardarUsuarios(nuevos_clientes)
+
+        # Refresca la tabla
+        self.listaClientes()
+        messagebox.showinfo("Éxito", f"Cliente con RUT {rut_a_eliminar} eliminado correctamente.")
+
 class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
     def __init__(self, root, nombreUsuarioSesionActual):
         Clientes.__init__(self)  # Inicializa las variables de Clientes
@@ -1322,19 +1637,20 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
 
         botones = [
             ("Editar perfil", self.editarPerfil),
-            ("Carrito", self.mostrarCarrito),  # <-- Nuevo botón
+            ("Carrito", self.mostrarCarrito),
+            ("Arrendar camión", self.arrendarCamion), 
             ("Volver", self.salir)
         ]
 
         for texto, comando in botones:
             Button(self.barraHorizontal, text=texto, command=comando, bg="white", fg="black",
                 font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
-            self.contenedorMenu = Frame(self.root)
-            self.contenedorMenu.pack(expand=True)
+        self.contenedorMenu = Frame(self.root)
+        self.contenedorMenu.pack(expand=True)
 
         Button(self.barraHorizontal, text="Eliminar usuario", command=self.eliminarUsuario, font=("Montserrat", 12)).pack(side=RIGHT, padx=10, pady=10)
 
-        # Contenedor para la lista de conductores debajo de la barra
+        # Contenedor para la lista de camiones debajo de la barra
         self.contenedorListaCamiones = Frame(self.root)
         self.contenedorListaCamiones.pack(fill=BOTH, expand=True, padx=20, pady=20)
 
@@ -1352,7 +1668,7 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
         # Cargar y mostrar los datos
         self.listaCamiones()
 
-        #Fondo de la ventana
+        # Fondo de la ventana
         self.imagen = PhotoImage(file="C:/Users/Crist/Documents/TransporteXpress/TransporteXpress/Imagenes/camionbg.png")
         imagenLabel = Label(self.root, image=self.imagen)
         imagenLabel.pack(side=LEFT, fill="both", expand=TRUE)
@@ -1623,8 +1939,7 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
         self.barraHorizontal = Frame(self.root, bg="orange", height=50)
         self.barraHorizontal.pack(side=TOP, fill=X)
 
-        Button(self.barraHorizontal, text="Arrendar camión", command=self.arrendarCamion, bg="white", fg="black",
-               font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
+        # Solo botón Volver, ya NO el de arrendar camión
         Button(self.barraHorizontal, text="Volver", command=self.menuInicial, bg="white", fg="black",
                font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
 
@@ -1640,10 +1955,13 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
 
         self.treeCarrito.pack(fill=BOTH, expand=True)
 
-        # Cargar solo camiones disponibles
+        # Cargar solo camiones arrendados por el usuario actual
         camiones = self.cargarCamiones()
         for c in camiones:
-            if c.get("Disponible", "").lower() == "si":
+            if (
+                c.get("Disponible", "").lower() == "en arriendo"
+                and c.get("ArrendadoPor", "") == self.nombreUsuarioSesionActual
+            ):
                 self.treeCarrito.insert('', 'end', values=(
                     c.get("idCamion", ""),
                     c.get("Patente", ""),
@@ -1659,28 +1977,67 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
         imagenLabel.pack(side=LEFT, fill="both", expand=TRUE)
 
     def arrendarCamion(self):
-        seleccion = self.treeCarrito.selection()
+        seleccion = self.treeCamiones.selection()
         if not seleccion:
             messagebox.showwarning("Advertencia", "Debe seleccionar un camión para arrendar.")
             return
         item = seleccion[0]
-        valores = self.treeCarrito.item(item, "values")
-        id_camion = valores[0]
+        valores = self.treeCamiones.item(item, "values")
+        patente = valores[0]
 
+        # Buscar el id_camion por patente
         camiones = self.cargarCamiones()
-        encontrado = False
+        id_camion = None
         for c in camiones:
-            if c.get("idCamion") == id_camion and c.get("Disponible", "").lower() == "si":
-                c["Disponible"] = "En arriendo"
-                encontrado = True
+            if c.get("Patente") == patente:
+                id_camion = c.get("idCamion")
                 break
-        if encontrado:
-            self.guardarCamiones(camiones)
-            messagebox.showinfo("Éxito", "Camión arrendado correctamente.")
-            self.mostrarCarrito()
-        else:
-            messagebox.showerror("Error", "No se pudo arrendar el camión seleccionado.")
-        
+        if not id_camion:
+            messagebox.showerror("Error", "No se encontró el camión seleccionado.")
+            return
+
+        # Mostrar ventana para elegir tipo de arriendo
+        top = Toplevel(self.root)
+        top.title("Seleccionar tipo de arriendo")
+        Label(top, text="Tipo de arriendo:").pack(padx=10, pady=10)
+        tipos = self.cargarTiposArriendo()
+        tipo_var = StringVar()
+        tipo_combo = Combobox(top, textvariable=tipo_var, values=tipos, state="readonly")
+        tipo_combo.pack(padx=10, pady=10)
+        if tipos:
+            tipo_combo.current(0)
+        def confirmar():
+            tipo_seleccionado = tipo_var.get()
+            if not tipo_seleccionado:
+                messagebox.showerror("Error", "Debe seleccionar un tipo de arriendo.")
+                return
+            camiones = self.cargarCamiones()
+            encontrado = False
+            for c in camiones:
+                if c.get("idCamion") == id_camion and c.get("Disponible", "").lower() == "si":
+                    c["Disponible"] = "En arriendo"
+                    c["TipoArriendo"] = tipo_seleccionado
+                    c["ArrendadoPor"] = self.nombreUsuarioSesionActual 
+                    encontrado = True
+                    break
+            if encontrado:
+                self.guardarCamiones(camiones)
+                messagebox.showinfo("Éxito", f"Camión arrendado como '{tipo_seleccionado}'.")
+                top.destroy()
+                self.menuInicial()  # Refresca la lista de camiones
+            else:
+                messagebox.showerror("Error", "No se pudo arrendar el camión seleccionado.")
+        Button(top, text="Confirmar", command=confirmar).pack(pady=10)
+    def cargarTiposArriendo(self):
+        if not os.path.exists('tipos_arriendo.json'):
+            return []
+        with open('tipos_arriendo.json', 'r') as file:
+            return json.load(file)
+
+    def guardarTiposArriendo(self, tipos):
+        with open('tipos_arriendo.json', 'w') as file:
+            json.dump(tipos, file, indent=4)
+
 # Clase principal para ejecutar la aplicación
 if __name__=="__main__":
     root = Tk()
