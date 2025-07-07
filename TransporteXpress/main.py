@@ -507,7 +507,16 @@ class InfoCamiones(MenuAdmin, Camiones):
 
         with open('camiones.json', 'r') as file: # Manejo seguro de archivos, r(read) significa que es solo para lectura.
             return json.load(file) # Convierte el contenido del archivo JSON en un diccionario de python, si quisieramos hacer el caso opuesto deberíamos usar json.dumps
-        
+
+    def cargarModelos(self):
+        if not os.path.exists('modelos.json'):
+            return {}
+        with open('modelos.json', 'r') as file:
+            return json.load(file)
+
+    def guardarModelos(self, modelos):
+        with open('modelos.json', 'w') as file:
+            json.dump(modelos, file, indent=4)        
 
     def guardarCamiones(self, camiones):
         with open('camiones.json', 'w') as file:
@@ -649,8 +658,8 @@ class InfoCamiones(MenuAdmin, Camiones):
         return True
 
     def guardarCamion(self):
-        patente = self.patente.get().strip()
-        marca = self.marca_var.get().strip()
+        patente = self.patente.get().strip().upper()
+        marca = self.marca_var.get().strip().upper()
         modelo = self.modelo_var.get().strip().upper()
 
         if not self.validarCamion(patente, marca, modelo):
@@ -1034,7 +1043,7 @@ class InfoCamiones(MenuAdmin, Camiones):
             return
         item = seleccion[0]
         marca = self.treeMarcas.item(item, "values")[0]
-        confirmar = messagebox.askyesno("Confirmar", f"¿Está seguro que desea eliminar la marca '{marca}'?\nEsto también eliminará todos los camiones de esa marca.")
+        confirmar = messagebox.askyesno("Confirmar", f"¿Está seguro que desea eliminar la marca '{marca}'?\nEsto también eliminará todos los camiones y modelos de esa marca.")
         if not confirmar:
             return
         # Elimina la marca del listado de marcas
@@ -1045,7 +1054,12 @@ class InfoCamiones(MenuAdmin, Camiones):
         camiones = self.cargarCamiones()
         nuevos_camiones = [c for c in camiones if c.get("Marca") != marca]
         self.guardarCamiones(nuevos_camiones)
-        messagebox.showinfo("Éxito", "Marca y camiones asociados eliminados correctamente.")
+        # Elimina los modelos asociados a esa marca
+        modelos = self.cargarModelos()
+        if marca in modelos:
+            del modelos[marca]
+            self.guardarModelos(modelos)
+        messagebox.showinfo("Éxito", "Marca, modelos y camiones asociados eliminados correctamente.")
         self.mostrarCrudMarcas()
 
     def formularioEditarMarca(self):
@@ -1139,18 +1153,17 @@ class InfoCamiones(MenuAdmin, Camiones):
         Label(top, text="Modelo:").pack(padx=10, pady=5)
         modelo_var = StringVar()
 
-        # Solo letras y números, sin espacios ni caracteres especiales, máximo 20 caracteres
+            # Solo letras y números, máximo 20 caracteres, no caracteres especiales, no espacios al inicio/final ni dobles espacios
         def solo_modelo(valor):
-            # Permite letras y espacios, máximo 20 caracteres, no permite espacios al inicio/final ni dobles espacios
             if len(valor) > 20:
                 return False
             if valor == "":
                 return True
-            # Solo letras y espacios
-            if not all(c.isalpha() or c == " " for c in valor):
+            # Solo letras, números y espacios
+            if not all(c.isalnum() or c == " " for c in valor):
                 return False
             # No espacios al inicio o final
-            if valor[0] == " " or valor[-1] == " ":
+            if valor[0] == " ":
                 return False
             # No dobles espacios seguidos
             if "  " in valor:
@@ -1166,11 +1179,8 @@ class InfoCamiones(MenuAdmin, Camiones):
             if not marca or not modelo:
                 messagebox.showerror("Error", "Debe seleccionar una marca y escribir un modelo.")
                 return
-            if " " in modelo:
-                messagebox.showerror("Error", "El modelo no puede contener espacios.")
-                return
-            if not modelo.isalnum():
-                messagebox.showerror("Error", "El modelo solo puede contener letras y números, sin caracteres especiales.")
+            if "  " in modelo:
+                messagebox.showerror("Error", "El modelo no puede contener doble espacios.")
                 return
             modelos = self.cargarModelos()
             if marca not in modelos:
@@ -2080,3 +2090,4 @@ if __name__=="__main__":
     root = Tk()
     app = InicioSesionApp(root)
     root.mainloop()
+    
