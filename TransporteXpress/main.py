@@ -182,6 +182,8 @@ class MenuAdmin(Conductores, Camiones):
             ("Agregar", self.formularioAgregarConductor),
             ("Editar", self.accionEditar),
             ("Eliminar", self.accionEliminar),
+            ("Asociar camión", self.formularioAsociarCamionConductor),
+            ("Desasociar camión", self.formularioDesasociarCamionConductor),
             ("Volver", self.volverBotones)
         ]
 
@@ -288,7 +290,6 @@ class MenuAdmin(Conductores, Camiones):
                     messagebox.showerror("Error", "El RUT debe tener entre 8 o 9 dígitos.")
                     return
             break
-            
 
         # Cargar conductores existentes
         conductores = self.cargarConductores()
@@ -327,6 +328,166 @@ class MenuAdmin(Conductores, Camiones):
 
         # Volver al menú principal o refrescar formulario
         self.mostrarMenuHorizontalConductores()
+
+    def formularioAsociarCamionConductor(self):
+        self.limpiarWidgets()
+        contenedor = Frame(self.root, bg="orange")
+        contenedor.pack(padx=20, pady=20)
+
+        # Cargar conductores SIN camión asociado
+        conductores = self.cargarConductores()
+        camiones = self.cargarCamiones()
+        conductores_sin_camion = [c for c in conductores if not any(cam.get("ConductorRUT") == c["RUT"] for cam in camiones)]
+        if not conductores_sin_camion:
+            messagebox.showinfo("Info", "Todos los conductores ya tienen camión asociado.")
+            self.mostrarMenuHorizontalConductores()
+            return
+
+        ruts = [c["RUT"] for c in conductores_sin_camion]
+        nombres = [f'{c["Nombre"]} ({c["RUT"]})' for c in conductores_sin_camion]
+        Label(contenedor, text="Conductor:", bg="orange").grid(row=0, column=0, sticky=E, pady=5)
+        conductor_var = StringVar()
+        conductor_combo = Combobox(contenedor, textvariable=conductor_var, values=nombres, state="readonly")
+        conductor_combo.grid(row=0, column=1, pady=5)
+        if nombres:
+            conductor_combo.current(0)
+
+        # Cargar camiones disponibles (sin conductor asociado)
+        camiones_disponibles = [c for c in camiones if not c.get("ConductorRUT")]
+        patentes = [c["Patente"] for c in camiones_disponibles]
+
+        Label(contenedor, text="Patente de camión:", bg="orange").grid(row=1, column=0, sticky=E, pady=5)
+        patente_var = StringVar()
+        patente_combo = Combobox(contenedor, textvariable=patente_var, values=patentes, state="readonly")
+        patente_combo.grid(row=1, column=1, pady=5)
+        if patentes:
+            patente_combo.current(0)
+
+        # Marca y modelo (solo texto)
+        marca_var = StringVar()
+        modelo_var = StringVar()
+        Label(contenedor, text="Marca:", bg="orange").grid(row=2, column=0, sticky=E, pady=5)
+        Label(contenedor, textvariable=marca_var, bg="orange").grid(row=2, column=1, pady=5)
+        Label(contenedor, text="Modelo:", bg="orange").grid(row=3, column=0, sticky=E, pady=5)
+        Label(contenedor, textvariable=modelo_var, bg="orange").grid(row=3, column=1, pady=5)
+
+        def actualizar_marca_modelo(*args):
+            patente = patente_var.get()
+            for c in camiones_disponibles:
+                if c["Patente"] == patente:
+                    marca_var.set(c.get("Marca", ""))
+                    modelo_var.set(c.get("Modelo", ""))
+                    break
+            else:
+                marca_var.set("")
+                modelo_var.set("")
+
+        patente_var.trace('w', actualizar_marca_modelo)
+        if patentes:
+            actualizar_marca_modelo()
+
+        def guardar():
+            conductor_idx = conductor_combo.current()
+            patente = patente_var.get()
+            if conductor_idx == -1 or not patente:
+                messagebox.showerror("Error", "Debe seleccionar camión y conductor.")
+                return
+            rut_conductor = ruts[conductor_idx]
+            # Verifica que el conductor no tenga camión asociado
+            if any(cam.get("ConductorRUT") == rut_conductor for cam in camiones):
+                messagebox.showerror("Error", "Este conductor ya tiene un camión asociado.")
+                return
+            for c in camiones:
+                if c["Patente"] == patente:
+                    c["ConductorRUT"] = rut_conductor
+                    break
+            self.guardarCamiones(camiones)
+            messagebox.showinfo("Éxito", f"Camión {patente} asociado a conductor {rut_conductor}.")
+            self.mostrarMenuHorizontalConductores()
+
+        Button(contenedor, text="Guardar", command=guardar).grid(row=4, column=0, columnspan=2, pady=15)
+        Button(contenedor, text="Volver", command=self.mostrarMenuHorizontalConductores).grid(row=5, column=0, columnspan=2, pady=5)
+
+    def formularioDesasociarCamionConductor(self):
+        self.limpiarWidgets()
+        contenedor = Frame(self.root, bg="orange")
+        contenedor.pack(padx=20, pady=20)
+
+        # Cargar conductores CON camión asociado
+        camiones = self.cargarCamiones()
+        conductores = self.cargarConductores()
+        ruts_con_camion = set(c.get("ConductorRUT") for c in camiones if c.get("ConductorRUT"))
+        conductores_con_camion = [c for c in conductores if c["RUT"] in ruts_con_camion]
+        if not conductores_con_camion:
+            messagebox.showinfo("Info", "Ningún conductor tiene camión asociado.")
+            self.mostrarMenuHorizontalConductores()
+            return
+
+        ruts = [c["RUT"] for c in conductores_con_camion]
+        nombres = [f'{c["Nombre"]} ({c["RUT"]})' for c in conductores_con_camion]
+        Label(contenedor, text="Conductor:", bg="orange").grid(row=0, column=0, sticky=E, pady=5)
+        conductor_var = StringVar()
+        conductor_combo = Combobox(contenedor, textvariable=conductor_var, values=nombres, state="readonly")
+        conductor_combo.grid(row=0, column=1, pady=5)
+        if nombres:
+            conductor_combo.current(0)
+
+        # Mostrar patente, marca y modelo del camión asociado
+        patente_var = StringVar()
+        marca_var = StringVar()
+        modelo_var = StringVar()
+        Label(contenedor, text="Patente de camión:", bg="orange").grid(row=1, column=0, sticky=E, pady=5)
+        Label(contenedor, textvariable=patente_var, bg="orange").grid(row=1, column=1, pady=5)
+        Label(contenedor, text="Marca:", bg="orange").grid(row=2, column=0, sticky=E, pady=5)
+        Label(contenedor, textvariable=marca_var, bg="orange").grid(row=2, column=1, pady=5)
+        Label(contenedor, text="Modelo:", bg="orange").grid(row=3, column=0, sticky=E, pady=5)
+        Label(contenedor, textvariable=modelo_var, bg="orange").grid(row=3, column=1, pady=5)
+
+        def actualizar_camion(*args):
+            idx = conductor_combo.current()
+            if idx == -1:
+                patente_var.set("")
+                marca_var.set("")
+                modelo_var.set("")
+                return
+            rut = ruts[idx]
+            for c in camiones:
+                if c.get("ConductorRUT") == rut:
+                    patente_var.set(c.get("Patente", ""))
+                    marca_var.set(c.get("Marca", ""))
+                    modelo_var.set(c.get("Modelo", ""))
+                    break
+            else:
+                patente_var.set("")
+                marca_var.set("")
+                modelo_var.set("")
+
+        conductor_var.trace('w', actualizar_camion)
+        conductor_combo.bind("<<ComboboxSelected>>", lambda e: actualizar_camion())
+        if nombres:
+            actualizar_camion()
+
+        def desasociar():
+            idx = conductor_combo.current()
+            if idx == -1:
+                messagebox.showerror("Error", "Debe seleccionar un conductor.")
+                return
+            rut = ruts[idx]
+            encontrado = False
+            for c in camiones:
+                if c.get("ConductorRUT") == rut:
+                    c["ConductorRUT"] = ""
+                    encontrado = True
+                    break
+            if encontrado:
+                self.guardarCamiones(camiones)
+                messagebox.showinfo("Éxito", "Camión desasociado correctamente.")
+                self.mostrarMenuHorizontalConductores()
+            else:
+                messagebox.showinfo("Info", "El conductor no tiene camión asociado.")
+
+        Button(contenedor, text="Desasociar", command=desasociar).grid(row=4, column=0, columnspan=2, pady=15)
+        Button(contenedor, text="Volver", command=self.mostrarMenuHorizontalConductores).grid(row=5, column=0, columnspan=2, pady=5)
 
     def listaConductores(self):
         # Verifica que el treeview existe antes de usarlo
@@ -423,11 +584,6 @@ class MenuAdmin(Conductores, Camiones):
         # Botón para guardar
         Button(contenedorFormulario, text="Guardar", command=self.formularioGuardarEdicionConductor).grid(row=7, column=0, columnspan=2, pady=15)
         Button(contenedorFormulario, text="Volver", command=self.mostrarMenuHorizontalConductores).grid(row=7, column=1, columnspan=5, pady=15)
-
-        # Fondo de la ventana
-        self.imagen = PhotoImage(file="C:/Users/Crist/Documents/TransporteXpress/TransporteXpress/Imagenes/camionbg.png")
-        imagenLabel = Label(self.root, image=self.imagen)
-        imagenLabel.pack(side=LEFT, fill="both", expand=TRUE)
 
     def formularioGuardarEdicionConductor(self):
         idConductor = self.idConductor.get().strip()
@@ -549,8 +705,8 @@ class InfoCamiones(MenuAdmin, Camiones):
         self.contenedorListaCamiones = Frame(self.root)
         self.contenedorListaCamiones.pack(fill=BOTH, expand=True, padx=20, pady=20)
 
-        # Incluye la columna "Tipo de arriendo"
-        columnas = ("ID", "Patente", "Marca", "Modelo", "Fecha de ingreso", "Disponible", "Tipo de arriendo")
+        # Incluye la columna "Conductor"
+        columnas = ("ID", "Patente", "Marca", "Modelo", "Fecha de ingreso", "Disponible", "Tipo de arriendo", "Conductor")
         self.treeCamiones = ttk.Treeview(self.contenedorListaCamiones, columns=columnas, show='headings')
 
         for col in columnas:
@@ -561,7 +717,12 @@ class InfoCamiones(MenuAdmin, Camiones):
 
         # Cargar y mostrar los datos
         camiones = self.cargarCamiones()
+        conductores = self.cargarConductores()
+        rut_a_nombre = {c["RUT"]: c["Nombre"] for c in conductores}
+
         for c in camiones:
+            rut = c.get("ConductorRUT", "")
+            nombre_conductor = rut_a_nombre.get(rut, "") if rut else ""
             self.treeCamiones.insert('', 'end', values=(
                 c.get("idCamion", ""),
                 c.get("Patente", ""),
@@ -569,7 +730,8 @@ class InfoCamiones(MenuAdmin, Camiones):
                 c.get("Modelo", ""),
                 c.get("Ingreso", ""),
                 c.get("Disponible", ""),
-                c.get("TipoArriendo", "") or c.get("Tipo de arriendo", "")
+                c.get("TipoArriendo", "") or c.get("Tipo de arriendo", ""),
+                nombre_conductor
             ))
 
         # Fondo de la ventana
@@ -625,27 +787,22 @@ class InfoCamiones(MenuAdmin, Camiones):
         imagenLabel.pack(side=LEFT, fill="both", expand=TRUE)
 
     def validarCamion(self, Patente, marca, modelo):
-        Patente = Patente.replace("-", "").replace(".", "")
-        modelo = modelo.replace("-", "").replace(".", "")
+        Patente = Patente.replace("-", "").replace(".", "").upper()
 
         if not all([Patente, marca, modelo]):
             messagebox.showerror("Error", "Todos los campos son obligatorios.")
             return False
 
-        elif len(Patente) != 6:
-            messagebox.showerror("Error", "La patente debe tener 6 dígitos.")
-            return False
+        # Letras válidas: A-H, J-N, P, R-T, V-Z (excluye I, O, Q, U, Ñ)
+        letras_validas = "A-HJ-NPR-TV-Z"
+        formato_1 = rf'^[{letras_validas}]{{2}}[0-9]{{4}}$'    # Ej: BB1234
+        formato_2 = rf'^[{letras_validas}]{{4}}[0-9]{{2}}$'    # Ej: BBBB12
 
-        elif Patente == len(Patente) * Patente[0]:
-            messagebox.showerror("Error", "La patente no puede ser una secuencia de dígitos repetidos.")
-            return False
-
-        elif Patente in "012345":
-            messagebox.showerror("Error", "La patente no puede ser una secuencia ascendente.")
-            return False
-
-        elif Patente in "987654":
-            messagebox.showerror("Error", "La patente no puede ser una secuencia descendente.")
+        if not (re.match(formato_1, Patente) or re.match(formato_2, Patente)):
+            messagebox.showerror(
+                "Error",
+                "La patente debe tener el formato LLNNNN o LLLLNN, usando solo letras válidas (sin I, O, Q, U, Ñ)."
+            )
             return False
 
         # Verificar si la patente ya existe
@@ -701,7 +858,7 @@ class InfoCamiones(MenuAdmin, Camiones):
                 c.get("Modelo", ""),
                 c.get("Ingreso", ""),
                 c.get("Disponible", ""),
-                c.get("Tipo de arriendo", "")
+                c.get("TipoArriendo", "") or c.get("Tipo de arriendo", ""),
             ))
 
     def accionEliminarCamiones(self):
@@ -987,7 +1144,7 @@ class InfoCamiones(MenuAdmin, Camiones):
         Button(self.barraHorizontal, text="Agregar marca", command=self.formularioAgregarMarca, bg="white", fg="black",
             font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
         Button(self.barraHorizontal, text="Editar marca", command=self.formularioEditarMarca, bg="white", fg="black",
-            font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)  # Nuevo botón
+            font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
         Button(self.barraHorizontal, text="Eliminar marca", command=self.eliminarMarca, bg="white", fg="black",
             font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
         Button(self.barraHorizontal, text="Volver", command=self.mostrarMenuHorizontalCamiones, bg="white", fg="black",
@@ -1013,22 +1170,35 @@ class InfoCamiones(MenuAdmin, Camiones):
         Label(top, text="Marca:").pack(padx=10, pady=10)
         marca_var = StringVar()
 
-        # Solo letras y espacios, máximo 20 caracteres
+        # Solo letras y espacios, mínimo 3 letras, máximo 20, NO números
         def solo_letras(valor):
-            return (valor.isalpha() or (valor.replace(" ", "").isalpha() and " " in valor)) and len(valor) <= 20 or valor == ""
+            if len(valor) > 20:
+                return False
+            if valor == "":
+                return True
+            if not all(c.isalpha() or c == " " for c in valor):  # Solo letras y espacios
+                return False
+            if valor[0] == " " or valor[-1] == " ":
+                return False
+            if "  " in valor:
+                return False
+            return True
 
         vcmd = (top.register(solo_letras), '%P')
         Entry(top, textvariable=marca_var, validate='key', validatecommand=vcmd).pack(padx=10, pady=10)
 
         def guardar():
-            marca = marca_var.get().strip().upper()  # <-- Convierte a mayúsculas
-            if not marca:
-                messagebox.showerror("Error", "Ingrese una marca.")
+            marca = marca_var.get().strip().upper()
+            letras = marca.replace(" ", "")
+            if not marca or len(letras) < 3 or not letras.isalpha():
+                messagebox.showerror("Error", "La marca debe tener al menos 3 letras, solo letras y espacios.")
                 return
-            marcas = [m.upper() for m in self.cargarMarcas()]  # <-- Compara en mayúsculas
+
+            marcas = [m.upper() for m in self.cargarMarcas()]
             if marca in marcas:
                 messagebox.showerror("Error", "La marca ya existe.")
                 return
+
             marcas.append(marca)
             self.guardarMarcas(marcas)
             messagebox.showinfo("Éxito", "Marca agregada correctamente.")
@@ -1043,23 +1213,26 @@ class InfoCamiones(MenuAdmin, Camiones):
             return
         item = seleccion[0]
         marca = self.treeMarcas.item(item, "values")[0]
-        confirmar = messagebox.askyesno("Confirmar", f"¿Está seguro que desea eliminar la marca '{marca}'?\nEsto también eliminará todos los camiones y modelos de esa marca.")
+
+        # Verifica si hay camiones con esa marca
+        camiones = self.cargarCamiones()
+        if any(c.get("Marca", "").upper() == marca.upper() for c in camiones):
+            messagebox.showwarning("Advertencia", f"No se puede eliminar la marca '{marca}' porque existen camiones asociados a ella.")
+            return
+
+        confirmar = messagebox.askyesno("Confirmar", f"¿Está seguro que desea eliminar la marca '{marca}'?\nEsto también eliminará todos los modelos de esa marca.")
         if not confirmar:
             return
         # Elimina la marca del listado de marcas
         marcas = self.cargarMarcas()
         marcas = [m for m in marcas if m != marca]
         self.guardarMarcas(marcas)
-        # Elimina los camiones de esa marca
-        camiones = self.cargarCamiones()
-        nuevos_camiones = [c for c in camiones if c.get("Marca") != marca]
-        self.guardarCamiones(nuevos_camiones)
         # Elimina los modelos asociados a esa marca
         modelos = self.cargarModelos()
         if marca in modelos:
             del modelos[marca]
             self.guardarModelos(modelos)
-        messagebox.showinfo("Éxito", "Marca, modelos y camiones asociados eliminados correctamente.")
+        messagebox.showinfo("Éxito", "Marca y modelos asociados eliminados correctamente.")
         self.mostrarCrudMarcas()
 
     def formularioEditarMarca(self):
@@ -1075,25 +1248,49 @@ class InfoCamiones(MenuAdmin, Camiones):
         Label(top, text="Nueva marca:").pack(padx=10, pady=10)
         marca_var = StringVar(value=marca_actual)
 
-        # Solo letras y espacios, máximo 20 caracteres
+        # Solo letras y espacios, mínimo 3 letras, máximo 20, NO números
         def solo_letras(valor):
-            return (valor.isalpha() or (valor.replace(" ", "").isalpha() and " " in valor)) and len(valor) <= 20 or valor == ""
+            if len(valor) > 20:
+                return False
+            if valor == "":
+                return True
+            if not all(c.isalpha() or c == " " for c in valor):  # Solo letras y espacios
+                return False
+            if valor[0] == " " or valor[-1] == " ":
+                return False
+            if "  " in valor:
+                return False
+            return True
 
         vcmd = (top.register(solo_letras), '%P')
         Entry(top, textvariable=marca_var, validate='key', validatecommand=vcmd).pack(padx=10, pady=10)
 
         def guardar():
             nueva_marca = marca_var.get().strip().upper()
-            if not nueva_marca:
-                messagebox.showerror("Error", "Ingrese una marca.")
+            letras = nueva_marca.replace(" ", "")
+            if not nueva_marca or len(letras) < 3 or not letras.isalpha():
+                messagebox.showerror("Error", "La marca debe tener al menos 3 letras, solo letras y espacios.")
                 return
+
             marcas = [m.upper() for m in self.cargarMarcas()]
             if nueva_marca in marcas and nueva_marca != marca_actual.upper():
                 messagebox.showerror("Error", "La marca ya existe.")
                 return
-            # Actualiza la marca
+
+            # Actualiza la marca en el catálogo
             marcas = [nueva_marca if m.upper() == marca_actual.upper() else m.upper() for m in self.cargarMarcas()]
             self.guardarMarcas(marcas)
+            # Actualiza la marca en los camiones existentes
+            camiones = self.cargarCamiones()
+            for c in camiones:
+                if c.get("Marca", "").upper() == marca_actual.upper():
+                    c["Marca"] = nueva_marca
+            self.guardarCamiones(camiones)
+            # Actualiza la marca en los modelos
+            modelos = self.cargarModelos()
+            if marca_actual in modelos:
+                modelos[nueva_marca] = modelos.pop(marca_actual)
+                self.guardarModelos(modelos)
             messagebox.showinfo("Éxito", "Marca editada correctamente.")
             top.destroy()
             self.mostrarCrudMarcas()
@@ -1150,22 +1347,61 @@ class InfoCamiones(MenuAdmin, Camiones):
         marca_combo.pack(padx=10, pady=5)
         if marcas:
             marca_combo.current(0)
+
+        # Solo muestra el botón "Agregar marca" si NO hay marcas existentes
+        if not marcas:
+            def agregar_marca():
+                def solo_letras(valor):
+                    if len(valor) > 20:
+                        return False
+                    if valor == "":
+                        return True
+                    if not all(c.isalpha() or c == " " for c in valor):  # Solo letras y espacios
+                        return False
+                    if valor[0] == " " or valor[-1] == " ":
+                        return False
+                    if "  " in valor:
+                        return False
+                    return True
+
+                def guardar_marca():
+                    nueva_marca = nueva_marca_var.get().strip().upper()
+                    letras = nueva_marca.replace(" ", "")
+                    if not nueva_marca or len(letras) < 3 or not letras.isalpha():
+                        messagebox.showerror("Error", "La marca debe tener al menos 3 letras, solo letras y espacios.")
+                        return
+                    marcas_actuales = [m.upper() for m in self.cargarMarcas()]
+                    if nueva_marca in marcas_actuales:
+                        messagebox.showerror("Error", "La marca ya existe.")
+                        return
+                    marcas_actuales.append(nueva_marca)
+                    self.guardarMarcas(marcas_actuales)
+                    marca_combo['values'] = marcas_actuales
+                    marca_var.set(nueva_marca)
+                    top_marca.destroy()
+                    messagebox.showinfo("Éxito", "Marca agregada correctamente.")
+
+                top_marca = Toplevel(top)
+                top_marca.title("Agregar Marca")
+                Label(top_marca, text="Nueva marca:").pack(padx=10, pady=10)
+                nueva_marca_var = StringVar()
+                vcmd = (top_marca.register(solo_letras), '%P')
+                Entry(top_marca, textvariable=nueva_marca_var, validate='key', validatecommand=vcmd).pack(padx=10, pady=10)
+                Button(top_marca, text="Guardar", command=guardar_marca).pack(pady=10)
+            Button(top, text="Agregar marca", command=agregar_marca).pack(padx=10, pady=5)
+
         Label(top, text="Modelo:").pack(padx=10, pady=5)
         modelo_var = StringVar()
 
-            # Solo letras y números, máximo 20 caracteres, no caracteres especiales, no espacios al inicio/final ni dobles espacios
         def solo_modelo(valor):
             if len(valor) > 20:
                 return False
             if valor == "":
                 return True
-            # Solo letras, números y espacios
             if not all(c.isalnum() or c == " " for c in valor):
                 return False
-            # No espacios al inicio o final
-            if valor[0] == " ":
+            if valor[0] == " " or valor[-1] == " ":
                 return False
-            # No dobles espacios seguidos
             if "  " in valor:
                 return False
             return True
@@ -1203,9 +1439,19 @@ class InfoCamiones(MenuAdmin, Camiones):
             return
         item = seleccion[0]
         marca, modelo = self.treeModelos.item(item, "values")
+
+        # Verifica si hay camiones con esa marca y modelo
+        camiones = self.cargarCamiones()
+        if any(
+            c.get("Marca", "").upper() == marca.upper() and c.get("Modelo", "").upper() == modelo.upper()
+            for c in camiones
+        ):
+            messagebox.showwarning("Advertencia", f"No se puede eliminar el modelo '{modelo}' de la marca '{marca}' porque existen camiones asociados.")
+            return
+
         confirmar = messagebox.askyesno(
             "Confirmar",
-            f"¿Está seguro que desea eliminar el modelo '{modelo}' de la marca '{marca}'?\nEsto también eliminará todos los camiones de ese modelo."
+            f"¿Está seguro que desea eliminar el modelo '{modelo}' de la marca '{marca}'?"
         )
         if not confirmar:
             return
@@ -1215,11 +1461,7 @@ class InfoCamiones(MenuAdmin, Camiones):
             if not modelos[marca]:
                 del modelos[marca]
             self.guardarModelos(modelos)
-            # Elimina los camiones de ese modelo
-            camiones = self.cargarCamiones()
-            nuevos_camiones = [c for c in camiones if not (c.get("Marca") == marca and c.get("Modelo") == modelo)]
-            self.guardarCamiones(nuevos_camiones)
-            messagebox.showinfo("Éxito", "Modelo y camiones asociados eliminados correctamente.")
+            messagebox.showinfo("Éxito", "Modelo eliminado correctamente.")
             self.mostrarCrudModelos()
 
     def formularioEditarModelo(self):
@@ -1239,18 +1481,14 @@ class InfoCamiones(MenuAdmin, Camiones):
 
         # Solo letras y números, sin espacios ni caracteres especiales, máximo 20 caracteres
         def solo_modelo(valor):
-            # Permite letras y espacios, máximo 20 caracteres, no permite espacios al inicio/final ni dobles espacios
             if len(valor) > 20:
                 return False
             if valor == "":
                 return True
-            # Solo letras y espacios
-            if not all(c.isalpha() or c == " " for c in valor):
+            if not all(c.isalnum() or c == " " for c in valor):
                 return False
-            # No espacios al inicio o final
             if valor[0] == " " or valor[-1] == " ":
                 return False
-            # No dobles espacios seguidos
             if "  " in valor:
                 return False
             return True
@@ -1279,7 +1517,7 @@ class InfoCamiones(MenuAdmin, Camiones):
             # Actualiza el modelo en los camiones existentes
             camiones = self.cargarCamiones()
             for c in camiones:
-                if c.get("Marca") == marca_actual and c.get("Modelo") == modelo_actual:
+                if c.get("Marca", "").upper() == marca_actual.upper() and c.get("Modelo", "").upper() == modelo_actual.upper():
                     c["Modelo"] = nuevo_modelo
             self.guardarCamiones(camiones)
             messagebox.showinfo("Éxito", "Modelo editado correctamente.")
@@ -1441,6 +1679,7 @@ class InfoCamiones(MenuAdmin, Camiones):
 
         # Botón para guardar
         Button(contenedorFormulario, text="Guardar", command=self.formularioGuardarCliente).grid(row=5, column=0, columnspan=2, pady=15)
+
         Button(contenedorFormulario, text="Volver", command=self.menuInicial).grid(row=6, column=0, columnspan=2, pady=15)
 
         # Fondo de la ventana
@@ -1571,6 +1810,8 @@ class InfoCamiones(MenuAdmin, Camiones):
         if not seleccion:
             messagebox.showwarning("Advertencia", "Debe seleccionar un cliente para eliminar.")
             return
+
+        # Obtiene el RUT del cliente seleccionado (columna 0)
         item = seleccion[0]
         valores = self.treeClientes.item(item, "values")
         rut_a_eliminar = valores[0]
@@ -2084,10 +2325,85 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
             top.destroy()
             self.mostrarCarrito()
         Button(top, text="Guardar", command=guardar).pack(pady=10)
-        
+  
+    def formularioEditarAsociacion(self):
+        seleccion = self.treeConductores.selection()
+        if not seleccion:
+            messagebox.showwarning("Advertencia", "Debe seleccionar un conductor para editar la asociación.")
+            return
+        item = seleccion[0]
+        valores = self.treeConductores.item(item, "values")
+        rut_conductor = valores[0]
+        nombre_conductor = valores[1]
+
+        camiones = self.cargarCamiones()
+        camiones_asociados = [c for c in camiones if c.get("ConductorRUT") == rut_conductor]
+        if not camiones_asociados:
+            messagebox.showinfo("Info", "El conductor no tiene camión asociado.")
+            return
+
+        top = Toplevel(self.root)
+        top.title("Editar asociación de camión")
+        Label(top, text=f"Conductor: {nombre_conductor} ({rut_conductor})").pack(padx=10, pady=10)
+
+        # Mostrar camión actual y permitir cambiarlo
+        Label(top, text="Camión actual:").pack()
+        Label(top, text=camiones_asociados[0]["Patente"]).pack()
+
+        camiones_disponibles = [c for c in camiones if not c.get("ConductorRUT") or c.get("ConductorRUT") == rut_conductor]
+        patente_var = StringVar(value=camiones_asociados[0]["Patente"])
+        patentes = [c["Patente"] for c in camiones_disponibles]
+        patente_combo = Combobox(top, textvariable=patente_var, values=patentes, state="readonly")
+        patente_combo.pack(padx=10, pady=10)
+        if patentes:
+            patente_combo.set(camiones_asociados[0]["Patente"])
+
+        def guardar():
+            nueva_patente = patente_var.get()
+            if not nueva_patente:
+                messagebox.showerror("Error", "Debe seleccionar un camión.")
+                return
+            # Desasocia el camión anterior
+            for c in camiones:
+                if c.get("ConductorRUT") == rut_conductor:
+                    c["ConductorRUT"] = ""
+            # Asocia el nuevo camión
+            for c in camiones:
+                if c["Patente"] == nueva_patente:
+                    c["ConductorRUT"] = rut_conductor
+                    break
+            self.guardarCamiones(camiones)
+            messagebox.showinfo("Éxito", f"Asociación actualizada.")
+            top.destroy()
+            self.listaConductores()
+
+        Button(top, text="Guardar", command=guardar).pack(pady=10)
+    
+    def eliminarAsociacionCamion(self):
+        seleccion = self.treeConductores.selection()
+        if not seleccion:
+            messagebox.showwarning("Advertencia", "Debe seleccionar un conductor para eliminar la asociación.")
+            return
+        item = seleccion[0]
+        valores = self.treeConductores.item(item, "values")
+        rut_conductor = valores[0]
+
+        camiones = self.cargarCamiones()
+        encontrado = False
+        for c in camiones:
+            if c.get("ConductorRUT") == rut_conductor:
+                c["ConductorRUT"] = ""
+                encontrado = True
+                break
+        if encontrado:
+            self.guardarCamiones(camiones)
+            messagebox.showinfo("Éxito", "Asociación eliminada.")
+            self.listaConductores()
+        else:
+            messagebox.showinfo("Info", "El conductor no tiene camión asociado.")
+
 # Clase principal para ejecutar la aplicación
 if __name__=="__main__":
     root = Tk()
     app = InicioSesionApp(root)
     root.mainloop()
-    
