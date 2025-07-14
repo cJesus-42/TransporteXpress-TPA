@@ -52,11 +52,32 @@ class InicioSesionApp:
         contraseniaLabel = Label(contenedor, text="Contraseña: ", font=("Montserrat", 14), bg="orange")
         contraseniaLabel.grid(column=0, row=2)
 
-        #Entradas de textos
-        nombreEntry = Entry(contenedor, textvariable=self.nombreUsuario, bg="#faedcd")
+        # Validación para nombre: solo letras, espacios y números, máximo 10 caracteres, sin dobles espacios
+        def validar_nombre(valor):
+            if len(valor) > 10:
+                return False
+            if not all(c.isalpha() or c.isdigit() or c == " " for c in valor):
+                return False
+            if valor and (valor[0] == " " or valor[-1] == " " or "  " in valor):
+                return False
+            return True
+
+        # Validación para contraseña: solo letras y números, máximo 6 caracteres
+        def validar_contrasenia(valor):
+            if len(valor) > 7:
+                return False
+            if not valor.isalnum() and valor == "":
+                return False
+            return True
+
+        vcmd_nombre = (self.root.register(validar_nombre), '%P')
+        vcmd_contrasenia = (self.root.register(validar_contrasenia), '%P')
+
+        #Entradas de textos con validación
+        nombreEntry = Entry(contenedor, textvariable=self.nombreUsuario, bg="#faedcd", validate='key', validatecommand=vcmd_nombre)
         nombreEntry.grid(column=1, row=1)
 
-        contraseniaEntry = Entry(contenedor, textvariable=self.contraseniaUsuario, bg="#faedcd", show="*")
+        contraseniaEntry = Entry(contenedor, textvariable=self.contraseniaUsuario, bg="#faedcd", show="*", validate='key', validatecommand=vcmd_contrasenia)
         contraseniaEntry.grid(column=1, row=2)
 
         #Botones
@@ -64,7 +85,7 @@ class InicioSesionApp:
         iniciarSesionButton.grid(column=1, row=3, ipadx=5, ipady=5,padx=10, pady=10)
 
         registrarButton = ttk.Button(contenedor, text="Registrar", command=self.registrarUsuario)
-        registrarButton.grid(column=0, row=3, ipadx=5, ipady=5,padx=10, pady=10)  
+        registrarButton.grid(column=0, row=3, ipadx=5, ipady=5,padx=10, pady=10)
 
     def cargarUsuarios(self):
         if not os.path.exists('usuarios.json'): # Verifica si el archivo 'usuarios.json' existe en el directorio actual
@@ -123,9 +144,43 @@ class InicioSesionApp:
         nombre = self.nombreUsuario.get()
         contrasenia = self.contraseniaUsuario.get()
 
-        #Para evitar que se ingresen datos vacíos:
+        # Validaciones para nombre de usuario
+        def solo_letras(valor):
+            if len(valor) > 10:  # máximo 10 caracteres
+                return False
+            if valor == "":
+                return True
+            if not all(c.isalpha() or c == " " or c.isdigit() for c in valor):  # Solo letras, espacios y números
+                return False
+            if valor[0] == " " or valor[-1] == " ":
+                return False
+            if "  " in valor:
+                return False
+            return True
+
         if not nombre or not contrasenia:
             messagebox.showerror('Error', 'Ingrese un nombre y una contraseña para poder registrar')
+            return False
+
+        if not solo_letras(nombre):
+            messagebox.showerror('Error', 'El nombre de usuario solo puede contener letras, números y espacios, sin espacios al inicio/final ni dobles espacios. Máximo 10 caracteres.')
+            return False
+
+        letras = [c for c in nombre if c.isalpha()]
+        if len(letras) < 3:
+            messagebox.showerror('Error', 'El nombre de usuario debe tener al menos 3 letras.')
+            return False
+
+        # Contraseña: solo letras y números, sin espacios, máximo 6 caracteres
+        if not contrasenia.isalnum():
+            messagebox.showerror('Error', 'La contraseña solo puede contener letras y números, sin espacios.')
+            return False
+        if len(contrasenia) != 4:
+            messagebox.showerror('Error', 'La contraseña debe tener 4 caracteres.')
+            return False
+        # No permitir contraseñas con todos los dígitos iguales (ej: "1111", "aaaa", "2222")
+        if len(set(contrasenia)) < 3:
+            messagebox.showerror('Error', 'La contraseña debe tener al menos 3 caracteres diferentes.')
             return False
 
         for usuario in usuarios:
@@ -136,13 +191,20 @@ class InicioSesionApp:
         usuarios.append({'nombre': nombre, 'contrasenia': contrasenia}) #Agregar a librería que después se convierte en JSON.
         self.guardarUsuarios(usuarios)
         messagebox.showinfo('Registro', 'Usuario registrado exitosamente')
-        return True     
+        return True
 
 class MenuAdmin(Conductores, Camiones):
     def __init__(self, root):
         super().__init__()  # Inicializa las variables de Conductores
         self.root = root
         self.mostrarBotonesCamionesYConductores()
+
+    def cargarModelos(self):
+        import os
+        if not os.path.exists('modelos.json'):
+            return {}
+        with open('modelos.json', 'r') as file:
+            return json.load(file)
 
     def limpiarWidgets(self):
         for widget in self.root.winfo_children():
@@ -169,11 +231,11 @@ class MenuAdmin(Conductores, Camiones):
         Button(self.contenedorBotones, text="Conductores", command=self.mostrarMenuHorizontalConductores,
             font=("Montserrat", 12), bg="white", fg="black", width=15).grid(row=1, column=0, padx=20, pady=10)
 
-        Button(self.contenedorBotones, text="Volver", command=self.salir,
+        Button(self.contenedorBotones, text="Cerrar sesión", command=self.salir,
             font=("Montserrat", 12), bg="white", fg="black", width=15).grid(row=2, column=0, padx=20, pady=10)
 
     def mostrarMenuHorizontalConductores(self):
-        self.limpiarWidgets() # Limpia la ventana para mostrar el menu horizontal
+        self.limpiarWidgets()  # Limpia la ventana para mostrar el menú horizontal
 
         self.barraHorizontal = Frame(self.root, bg="orange", height=50)
         self.barraHorizontal.pack(side=TOP, fill=X)
@@ -183,14 +245,15 @@ class MenuAdmin(Conductores, Camiones):
             ("Editar", self.accionEditar),
             ("Eliminar", self.accionEliminar),
             ("Asociar camión", self.formularioAsociarCamionConductor),
-            ("Desasociar camión", self.formularioDesasociarCamionConductor),
-            ("Volver", self.volverBotones)
+            ("Desasociar camión", self.formularioDesasociarCamionConductor)
         ]
 
         for texto, comando in botones:
             Button(self.barraHorizontal, text=texto, command=comando, bg="white", fg="black",
                 font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
- 
+
+        Button(self.barraHorizontal, text="Volver", command=self.volverBotones, font=("Montserrat", 12)).pack(side=RIGHT, padx=10, pady=10)
+
         self.contenedor_menu = Frame(self.root)
         self.contenedor_menu.pack(expand=True)
 
@@ -199,7 +262,7 @@ class MenuAdmin(Conductores, Camiones):
         self.contenedorLista.pack(fill=BOTH, expand=True, padx=20, pady=20)
 
         # Crear el Treeview con columnas para cada dato
-        columnas = ("RUT", "Nombre completo", "Teléfono", "Correo", "Dirección", "Fecha de nacimiento", "Fecha de ingreso")
+        columnas = ("RUT", "Nombre completo", "Teléfono", "Correo", "Dirección", "Fecha de nacimiento", "Fecha de ingreso", "Camión asociado")
         self.treeConductores = ttk.Treeview(self.contenedorLista, columns=columnas, show='headings')
 
         # Definir encabezados
@@ -210,7 +273,23 @@ class MenuAdmin(Conductores, Camiones):
         self.treeConductores.pack(fill=BOTH, expand=True)
 
         # Cargar y mostrar los datos
-        self.listaConductores()
+        conductores = self.cargarConductores()
+        camiones = self.cargarCamiones()
+        rut_a_patente = {c.get("ConductorRUT"): c.get("Patente") for c in camiones if c.get("ConductorRUT")}
+
+        for conductor in conductores:
+            rut = conductor.get("RUT", "")
+            camión_asociado = rut_a_patente.get(rut, "N/A")  # Obtiene la patente del camión asociado, si existe
+            self.treeConductores.insert('', 'end', values=(
+                rut,
+                conductor.get("Nombre", ""),
+                conductor.get("Teléfono", ""),
+                conductor.get("Correo Electrónico", ""),
+                conductor.get("Dirección", ""),
+                conductor.get("Fecha Nacimiento", ""),
+                conductor.get("Fecha Ingreso", ""),
+                camión_asociado
+            ))
 
         # Fondo de la ventana
         self.imagen = PhotoImage(file="C:/Users/Crist/Documents/TransporteXpress/TransporteXpress/Imagenes/camionbg.png")
@@ -222,43 +301,146 @@ class MenuAdmin(Conductores, Camiones):
         contenedorFormulario = Frame(self.root, bg="orange")
         contenedorFormulario.pack(padx=20, pady=20)
 
+        # Inicializa las variables nacimiento e ingreso
+        nacimiento = ""
+        ingreso = ""
+
         # Etiquetas y entradas
         Label(contenedorFormulario, text="RUT:", bg="orange").grid(row=0, column=0, sticky=E, pady=5)
-        Entry(contenedorFormulario, textvariable=self.idConductor).grid(row=0, column=1, pady=5)
+        def validar_rut(valor):
+            # Permite escribir mientras se ingresa el RUT
+            if not valor:
+                return True
+            # Solo dígitos y K, máximo 10 caracteres
+            if not re.match(r'^[0-9kK\-\.]*$', valor):
+                return False
+            if len(valor.replace("-", "").replace(".", "")) > 9:
+                return False
+            return True
+
+        vcmd_rut = (self.root.register(validar_rut), '%P')
+        Entry(contenedorFormulario, textvariable=self.idConductor, validate='key', validatecommand=vcmd_rut).grid(row=0, column=1, pady=5)
 
         Label(contenedorFormulario, text="Nombre completo:", bg="orange").grid(row=1, column=0, sticky=E, pady=5)
-        Entry(contenedorFormulario, textvariable=self.nombreConductor).grid(row=1, column=1, pady=5)
+        def ValidarNombreConductor(valor):
+            if not valor:
+                return True
+            if any(c.isdigit() for c in valor):
+                return False
+            if "  " in valor:
+                return False
+            # Permite espacio al final mientras se escribe
+            palabras = valor.strip().split()
+            if len(palabras) > 3:
+                return False
+            return all(p.isalpha() for p in palabras)
+
+        vcmd_nombre_conductor = (self.root.register(ValidarNombreConductor), '%P')
+        Entry(contenedorFormulario, textvariable=self.nombreConductor, validate='key', validatecommand=vcmd_nombre_conductor).grid(column=1, row=1, pady=5)
 
         Label(contenedorFormulario, text="Teléfono +56:", bg="orange").grid(row=2, column=0, sticky=E, pady=5)
-        Entry(contenedorFormulario, textvariable=self.telefono).grid(row=2, column=1, pady=5)
+        # Teléfono solo números, sin espacios ni doble espacios
+        def validar_telefono(valor):
+            if not valor:
+                return True
+            if " " in valor or not valor.isdigit():
+                return False
+            return True
+
+        vcmd_telefono = (self.root.register(validar_telefono), '%P')
+        Entry(contenedorFormulario, textvariable=self.telefono, validate='key', validatecommand=vcmd_telefono).grid(row=2, column=1, pady=5)
 
         Label(contenedorFormulario, text="Correo:", bg="orange").grid(row=3, column=0, sticky=E, pady=5)
-        Entry(contenedorFormulario, textvariable=self.correo).grid(row=3, column=1, pady=5)
+        # Correo solo formato Gmail
+        def validar_gmail(valor):
+            if not valor:
+                return True  # Permitimos vacío mientras se escribe
+
+            # Permite letras, números, punto, guion y arroba
+            patron = r'^[a-zA-Z0-9._@-]*$'
+            if not re.match(patron, valor):
+                return False
+
+            # Si termina en @gmail.com, verificamos la longitud total
+            if valor.lower().endswith('@gmail.com'):
+                return True  # Si es válido, permitimos seguir escribiendo
+
+            return True  # Si aún no terminó en @gmail.com, permitimos seguir escribiendo
+
+        vcmd_correo = (self.root.register(validar_gmail), '%P')
+        Entry(contenedorFormulario, textvariable=self.correo, validate='key', validatecommand=vcmd_correo).grid(row=3, column=1, pady=5)
 
         Label(contenedorFormulario, text="Dirección:", bg="orange").grid(row=4, column=0, sticky=E, pady=5)
         Entry(contenedorFormulario, textvariable=self.direccion).grid(row=4, column=1, pady=5)
 
+        # Calendario para fecha de nacimiento
         Label(contenedorFormulario, text="Fecha de nacimiento:", bg="orange").grid(row=5, column=0, sticky=E, pady=5)
-        DateEntry(
+        nacimiento_entry = DateEntry(
             contenedorFormulario,
-            textvariable=self.nacimiento,
-            date_pattern='yyyy-mm-dd',
+            date_pattern='dd/MM/yyyy',
             locale='es_CL',
             maxdate=datetime.now() - timedelta(days=18*365),
             mindate=datetime(1900, 1, 1)
-        ).grid(row=5, column=1, pady=5)
+        )
 
+        # Inicializa el calendario con la fecha guardada
+        try:
+            nacimiento_entry.set_date(datetime.strptime(nacimiento, "%d-%m-%Y"))
+        except Exception:
+            nacimiento_entry.set_date(datetime.now())
+        nacimiento_entry.grid(row=5, column=1, pady=5)
+
+        # Calendario para fecha de ingreso
         Label(contenedorFormulario, text="Fecha de ingreso:", bg="orange").grid(row=6, column=0, sticky=E, pady=5)
-        DateEntry(
+        ingreso_entry = DateEntry(
             contenedorFormulario,
-            textvariable=self.ingreso,
-            date_pattern='yyyy-mm-dd',
+            date_pattern='dd/MM/yyyy',
             locale='es_CL',
             maxdate=datetime.now()
-        ).grid(row=6, column=1, pady=5)
+        )
+
+        # Inicializa el calendario con la fecha guardada
+        try:
+            ingreso_entry.set_date(datetime.strptime(ingreso, "%d-%m-%Y"))
+        except Exception:
+            ingreso_entry.set_date(datetime.now())
+        ingreso_entry.grid(row=6, column=1, pady=5)
 
         # Botón para guardar
-        Button(contenedorFormulario, text="Guardar", command=self.formularioGuardarConductor).grid(row=7, column=0, columnspan=2, pady=15)
+        def validar_modulo_11(rut):
+            rut = rut.replace(".", "").replace("-", "").upper()
+            if len(rut) < 2:
+                return False
+            cuerpo = rut[:-1]
+            dv = rut[-1]
+            suma = 0
+            multiplo = 2
+            for c in reversed(cuerpo):
+                suma += int(c) * multiplo
+                multiplo += 1
+                if multiplo > 7:
+                    multiplo = 2
+            resto = suma % 11
+            dv_calculado = 11 - resto
+            if dv_calculado == 11:
+                dv_calculado = '0'
+            elif dv_calculado == 10:
+                dv_calculado = 'K'
+            else:
+                dv_calculado = str(dv_calculado)
+            return dv == dv_calculado
+
+        def guardar_conductor():
+            rut = self.idConductor.get().strip().replace("-", "").replace(".", "").upper()
+            # Validación módulo 11
+            if not validar_modulo_11(rut):
+                messagebox.showerror("Error", "El RUT ingresado no es válido.")
+                return
+            self.nacimiento.set(nacimiento_entry.get_date().strftime("%d-%m-%Y"))
+            self.ingreso.set(ingreso_entry.get_date().strftime("%d-%m-%Y"))
+            self.formularioGuardarConductor()
+
+        Button(contenedorFormulario, text="Guardar", command=guardar_conductor).grid(row=7, column=0, columnspan=2, pady=15)
         Button(contenedorFormulario, text="Volver", command=self.mostrarMenuHorizontalConductores).grid(row=7, column=1, columnspan=2, pady=15)
 
         # Fondo de la ventana
@@ -268,7 +450,7 @@ class MenuAdmin(Conductores, Camiones):
 
     def formularioGuardarConductor(self):
         # Obtiene los valores
-        idConductor = self.idConductor.get().strip()
+        idConductor = self.idConductor.get().strip().replace("-", "").replace(".", "").upper()
         nombreConductor = self.nombreConductor.get().strip()
         telefono = self.telefono.get().strip()
         correo = self.correo.get().strip()
@@ -276,29 +458,68 @@ class MenuAdmin(Conductores, Camiones):
         nacimiento = self.nacimiento.get().strip()
         ingreso = self.ingreso.get().strip()
 
-        conductores = self.cargarConductores()
+        # Validación: todos los campos obligatorios
+        if not all([idConductor, nombreConductor, telefono, correo, direccion, nacimiento, ingreso]):
+            messagebox.showerror("Error", "Todos los campos son obligatorios.")
+            return
 
-        # Validaciones básicas
-        for c in conductores:
-            if c.get("idConductor") == idConductor and (len(c.get("idConductor")) != 9 or len(c.get("idConductor")) != 8):
-                if not idConductor or not nombreConductor:
-                    messagebox.showerror("Error", "Debe ingresar al menos RUT y nombre completo.")
-                    return
+        # Validación nombre: mínimo 3 palabras, solo letras y espacios
+        palabras = nombreConductor.strip().split()
+        if len(palabras) < 3 or not all(p.isalpha() for p in palabras):
+            messagebox.showerror("Error", "Debe ingresar nombre y dos apellidos.")
+            return
+        if any(c.isdigit() for c in nombreConductor) or "  " in nombreConductor or nombreConductor[0] == " " or nombreConductor[-1] == " ":
+            messagebox.showerror("Error", "El nombre no puede tener números, doble espacios ni espacios al inicio/final.")
+            return
 
-                # Validar que el RUT tenga 9 dígitos
-                elif len(idConductor.replace('-', '').replace('.', '')) != 9 or len(idConductor.replace('-', '').replace('.', '')) != 8:
-                    messagebox.showerror("Error", "El RUT debe tener entre 8 o 9 dígitos.")
-                    return
-            break
+        # Teléfono: solo números, 9 dígitos, formato chileno, sin patrones repetidos
+        if not telefono.isdigit() or len(telefono) != 9:
+            messagebox.showerror("Error", "El teléfono debe tener 9 dígitos.")
+            return
+        if len(set(telefono)) == 1:
+            messagebox.showerror("Error", "El teléfono no puede tener todos los dígitos iguales.")
+            return
+        if telefono in ["123456789", "987654321"]:
+            messagebox.showerror("Error", "El teléfono no puede ser una secuencia simple.")
+            return
+        if not telefono.startswith("9"):
+            messagebox.showerror("Error", "El teléfono debe comenzar con 9 (formato celular chileno).")
+            return
+        if telefono[1:] == "00000000":
+            messagebox.showerror("Error", "El teléfono no puede ser 9 seguido de puros ceros.")
+            return
 
-        # Cargar conductores existentes
-        conductores = self.cargarConductores()
+        # Correo: solo Gmail
+        # Validación para correo
+        if len(correo) < 14 or len(correo) > 31:
+            messagebox.showerror("Error", "El correo debe tener entre 14 y 30 caracteres, incluyendo '@gmail.com'.")
+            return
 
-        # Verificar si ya existe el conductor por RUT
-        for c in conductores:
-            if c['RUT'] == idConductor:
-                messagebox.showerror("Error", "Ya existe un conductor con ese RUT.")
+        patron = r'^[\w\.-]+@gmail\.com$'
+        if not re.match(patron, correo):
+            messagebox.showerror("Error", "El correo debe tener formato Gmail.")
+            return
+
+        # Dirección: mínimo 5 caracteres
+        if len(direccion) < 5:
+            messagebox.showerror("Error", "Ingrese la dirección completa (mínimo 5 caracteres).")
+            return
+
+        # Verifica que el conductor no tenga camión asociado
+        camiones = self.cargarCamiones()
+        for c in camiones:
+            if c.get("ConductorRUT") == idConductor:
+                messagebox.showerror("Error", "Este conductor ya tiene un camión asociado.")
                 return
+
+        # Formatear fechas al formato chileno dd-mm-yyyy
+        try:
+            if nacimiento:
+                nacimiento = datetime.strptime(nacimiento, "%Y-%m-%d").strftime("%d-%m-%Y")
+            if ingreso:
+                ingreso = datetime.strptime(ingreso, "%Y-%m-%Y").strftime("%d-%m-%Y")
+        except Exception:
+            pass
 
         # Agregar nuevo conductor
         nuevoConductor = {
@@ -310,7 +531,9 @@ class MenuAdmin(Conductores, Camiones):
             "Fecha Nacimiento": nacimiento,
             "Fecha Ingreso": ingreso
         }
-        conductores.append(nuevoConductor)
+        conductores = self.cargarConductores()  # Método que carga conductores desde JSON
+
+        conductores.append(nuevoConductor)  # <-- Agrega el nuevo conductor
 
         # Guardar en JSON
         self.guardarConductores(conductores)
@@ -363,24 +586,42 @@ class MenuAdmin(Conductores, Camiones):
         if patentes:
             patente_combo.current(0)
 
-        # Marca y modelo (solo texto)
+        # Marca, modelo y valor fijo (solo texto)
         marca_var = StringVar()
         modelo_var = StringVar()
+        valor_fijo_var = StringVar()  # Define valor_fijo_var aquí
         Label(contenedor, text="Marca:", bg="orange").grid(row=2, column=0, sticky=E, pady=5)
         Label(contenedor, textvariable=marca_var, bg="orange").grid(row=2, column=1, pady=5)
         Label(contenedor, text="Modelo:", bg="orange").grid(row=3, column=0, sticky=E, pady=5)
         Label(contenedor, textvariable=modelo_var, bg="orange").grid(row=3, column=1, pady=5)
+        Label(contenedor, text="Valor fijo:", bg="orange").grid(row=4, column=0, sticky=E, pady=5)
+        Label(contenedor, textvariable=valor_fijo_var, bg="orange").grid(row=4, column=1, pady=5)
 
         def actualizar_marca_modelo(*args):
+            modelos_dict = self.cargarModelos()  # Cargar modelos dentro del método
             patente = patente_var.get()
             for c in camiones_disponibles:
                 if c["Patente"] == patente:
-                    marca_var.set(c.get("Marca", ""))
-                    modelo_var.set(c.get("Modelo", ""))
+                    marca = c.get("Marca", "")
+                    modelo = c.get("Modelo", "")
+                    marca_var.set(marca)
+                    modelo_var.set(modelo)
+                    # Obtener valor fijo desde modelos.json
+                    valor_fijo = c.get("valor_fijo")
+                    if valor_fijo is None or valor_fijo == "":
+                        modelos = modelos_dict.get(marca, [])
+                        for m in modelos:
+                            nombre = m["nombre"] if isinstance(m, dict) else m
+                            if nombre == modelo and isinstance(m, dict):
+                                valor_fijo = m.get('valor_fijo', 0)
+                                break
+                    valor_fijo_str = f"${valor_fijo:,}" if valor_fijo else ""
+                    valor_fijo_var.set(valor_fijo_str)
                     break
             else:
                 marca_var.set("")
                 modelo_var.set("")
+                valor_fijo_var.set("")
 
         patente_var.trace('w', actualizar_marca_modelo)
         if patentes:
@@ -394,9 +635,11 @@ class MenuAdmin(Conductores, Camiones):
                 return
             rut_conductor = ruts[conductor_idx]
             # Verifica que el conductor no tenga camión asociado
-            if any(cam.get("ConductorRUT") == rut_conductor for cam in camiones):
-                messagebox.showerror("Error", "Este conductor ya tiene un camión asociado.")
-                return
+            camiones = self.cargarCamiones()
+            for c in camiones:
+                if c.get("ConductorRUT") == rut_conductor:
+                    messagebox.showerror("Error", "Este conductor ya tiene un camión asociado.")
+                    return
             for c in camiones:
                 if c["Patente"] == patente:
                     c["ConductorRUT"] = rut_conductor
@@ -405,8 +648,8 @@ class MenuAdmin(Conductores, Camiones):
             messagebox.showinfo("Éxito", f"Camión {patente} asociado a conductor {rut_conductor}.")
             self.mostrarMenuHorizontalConductores()
 
-        Button(contenedor, text="Guardar", command=guardar).grid(row=4, column=0, columnspan=2, pady=15)
-        Button(contenedor, text="Volver", command=self.mostrarMenuHorizontalConductores).grid(row=5, column=0, columnspan=2, pady=5)
+        Button(contenedor, text="Guardar", command=guardar).grid(row=5, column=0, columnspan=2, pady=15)
+        Button(contenedor, text="Volver", command=self.mostrarMenuHorizontalConductores).grid(row=6, column=0, columnspan=2, pady=5)
 
     def formularioDesasociarCamionConductor(self):
         self.limpiarWidgets()
@@ -562,27 +805,66 @@ class MenuAdmin(Conductores, Camiones):
         Label(contenedorFormulario, text="Dirección:", bg="orange").grid(row=4, column=0, sticky=E, pady=5)
         Entry(contenedorFormulario, textvariable=self.direccion).grid(row=4, column=1, pady=5)
 
+        # Calendario para fecha de nacimiento
         Label(contenedorFormulario, text="Fecha de nacimiento:", bg="orange").grid(row=5, column=0, sticky=E, pady=5)
-        DateEntry(
+        nacimiento_entry = DateEntry(
             contenedorFormulario,
-            textvariable=self.nacimiento,
-            date_pattern='yyyy-mm-dd',
+            date_pattern='dd/MM/yyyy',
             locale='es_CL',
             maxdate=datetime.now() - timedelta(days=18*365),
-            mindate=datetime(1950, 1, 1)
-        ).grid(row=5, column=1, pady=5)
+            mindate=datetime(1900, 1, 1)
+        )
+        # Inicializa el calendario con la fecha guardada
+        try:
+            nacimiento_entry.set_date(datetime.strptime(nacimiento, "%d-%m-%Y"))
+        except Exception:
+            nacimiento_entry.set_date(datetime.now())
+        nacimiento_entry.grid(row=5, column=1, pady=5)
 
+        # Calendario para fecha de ingreso
         Label(contenedorFormulario, text="Fecha de ingreso:", bg="orange").grid(row=6, column=0, sticky=E, pady=5)
-        DateEntry(
+        ingreso_entry = DateEntry(
             contenedorFormulario,
-            textvariable=self.ingreso,
-            date_pattern='yyyy-mm-dd',
+            date_pattern='dd/MM/yyyy',
             locale='es_CL',
             maxdate=datetime.now()
-        ).grid(row=6, column=1, pady=5)
+        )
+        # Inicializa el calendario con la fecha guardada
+        try:
+            ingreso_entry.set_date(datetime.strptime(ingreso, "%d-%m-%Y"))
+        except Exception:
+            ingreso_entry.set_date(datetime.now())
+        ingreso_entry.grid(row=6, column=1, pady=5)
 
-        # Botón para guardar
-        Button(contenedorFormulario, text="Guardar", command=self.formularioGuardarEdicionConductor).grid(row=7, column=0, columnspan=2, pady=15)
+        def guardar_edicion():
+            nombreConductor = self.nombreConductor.get().strip()
+            telefono = self.telefono.get().strip()
+            correo = self.correo.get().strip()
+            direccion = self.direccion.get().strip()
+            nacimiento = nacimiento_entry.get_date().strftime("%d-%m-%Y")
+            ingreso = ingreso_entry.get_date().strftime("%d-%m-%Y")
+
+            conductores = self.cargarConductores()
+            actualizado = False
+            for c in conductores:
+                if c.get("RUT") == idConductor:
+                    c["Nombre"] = nombreConductor
+                    c["Teléfono"] = telefono
+                    c["Correo Electrónico"] = correo
+                    c["Dirección"] = direccion
+                    c["Fecha Nacimiento"] = nacimiento
+                    c["Fecha Ingreso"] = ingreso
+                    actualizado = True
+                    break
+
+            if actualizado:
+                self.guardarConductores(conductores)
+                messagebox.showinfo("Éxito", "Conductor editado correctamente.")
+                self.mostrarMenuHorizontalConductores()
+            else:
+                messagebox.showerror("Error", "No se encontró el conductor para editar.")
+
+        Button(contenedorFormulario, text="Guardar", command=guardar_edicion).grid(row=7, column=0, columnspan=2, pady=15)
         Button(contenedorFormulario, text="Volver", command=self.mostrarMenuHorizontalConductores).grid(row=7, column=1, columnspan=5, pady=15)
 
     def formularioGuardarEdicionConductor(self):
@@ -633,18 +915,19 @@ class MenuAdmin(Conductores, Camiones):
 
         # Cargar la lista de conductores
         conductores = self.cargarConductores()
-
-        # Filtra la lista para eliminar el conductor seleccionado
         nuevos_conductores = [c for c in conductores if c.get("RUT") != rut_a_eliminar]
-        # Incluye en la lista todos los conductores diferentes al rut a eliminar
-        # "para cada elemento c en la lista conductores, incluye c en la nueva lista solo si cumple la condición después del if"
-
-        # Guarda la lista actualizada
         self.guardarConductores(nuevos_conductores)
+
+        # Solo elimina el rut del conductor en los camiones asociados, no el camión
+        camiones = self.cargarCamiones()
+        for c in camiones:
+            if c.get("ConductorRUT") == rut_a_eliminar:
+                c["ConductorRUT"] = ""
+        self.guardarCamiones(camiones)
 
         # Refresca la tabla
         self.listaConductores()
-        messagebox.showinfo("Éxito", f"Conductor con RUT {rut_a_eliminar} eliminado correctamente.")
+        messagebox.showinfo("Éxito", f"Conductor con RUT {rut_a_eliminar} eliminado correctamente y desasociado de su camión.")
 
     def pasar(self):
         self.limpiarWidgets()
@@ -674,6 +957,10 @@ class InfoCamiones(MenuAdmin, Camiones):
         with open('modelos.json', 'w') as file:
             json.dump(modelos, file, indent=4)        
 
+    def guardarTiposArriendo(self, tipos):
+        with open('tipos_arriendo.json', 'w') as file:
+            json.dump(tipos, file, indent=4)
+
     def guardarCamiones(self, camiones):
         with open('camiones.json', 'w') as file:
             json.dump(camiones, file, indent=4)
@@ -690,13 +977,14 @@ class InfoCamiones(MenuAdmin, Camiones):
             ("Mantención", self.mostrarCamionesNoDisponibles),
             ("Marcas", self.mostrarCrudMarcas),
             ("Modelos", self.mostrarCrudModelos),
-            ("Tipo de arriendo", self.mostrarCrudTipoArriendo),
-            ("Volver", self.volverBotones)
+            ("Tipo de arriendo", self.mostrarCrudTipoArriendo)
         ]
 
         for texto, comando in botones:
             Button(self.barraHorizontal, text=texto, command=comando, bg="white", fg="black",
                 font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
+
+        Button(self.barraHorizontal, text="Volver", command=self.volverBotones, font=("Montserrat", 12)).pack(side=RIGHT, padx=10, pady=10)
 
         self.contenedor_menu = Frame(self.root)
         self.contenedor_menu.pack(expand=True)
@@ -706,13 +994,13 @@ class InfoCamiones(MenuAdmin, Camiones):
         self.contenedorListaCamiones.pack(fill=BOTH, expand=True, padx=20, pady=20)
 
         # Incluye la columna "Conductor"
-        columnas = ("ID", "Patente", "Marca", "Modelo", "Fecha de ingreso", "Disponible", "Tipo de arriendo", "Conductor")
+        # Incluye la columna "Valor fijo" en el árbol de camiones
+        columnas = ("ID", "Patente", "Marca", "Modelo", "Valor fijo", "Fecha de ingreso", "Disponible", "Tipo de arriendo", "Conductor")
         self.treeCamiones = ttk.Treeview(self.contenedorListaCamiones, columns=columnas, show='headings')
 
         for col in columnas:
             self.treeCamiones.heading(col, text=col)
             self.treeCamiones.column(col, width=120, anchor='center')
-
         self.treeCamiones.pack(fill=BOTH, expand=True)
 
         # Cargar y mostrar los datos
@@ -720,14 +1008,29 @@ class InfoCamiones(MenuAdmin, Camiones):
         conductores = self.cargarConductores()
         rut_a_nombre = {c["RUT"]: c["Nombre"] for c in conductores}
 
+        modelos_dict = self.cargarModelos()
         for c in camiones:
+            marca = c.get("Marca", "")  # Definir marca
+            modelo = c.get("Modelo", "")  # Definir modelo
             rut = c.get("ConductorRUT", "")
             nombre_conductor = rut_a_nombre.get(rut, "") if rut else ""
+            # Obtener valor fijo desde modelos.json
+            valor_fijo = c.get("valor_fijo")
+            if valor_fijo is None or valor_fijo == "":
+                # Buscar en modelos.json si no está en el camión
+                modelos = modelos_dict.get(marca, [])
+                for m in modelos:
+                    nombre = m["nombre"] if isinstance(m, dict) else m
+                    if nombre == modelo and isinstance(m, dict):
+                        valor_fijo = m.get('valor_fijo', 0)
+                        break
+            valor_fijo_str = f"${valor_fijo:,}" if valor_fijo else ""
             self.treeCamiones.insert('', 'end', values=(
                 c.get("idCamion", ""),
                 c.get("Patente", ""),
-                c.get("Marca", ""),
-                c.get("Modelo", ""),
+                marca,
+                modelo,
+                valor_fijo_str,
                 c.get("Ingreso", ""),
                 c.get("Disponible", ""),
                 c.get("TipoArriendo", "") or c.get("Tipo de arriendo", ""),
@@ -760,11 +1063,34 @@ class InfoCamiones(MenuAdmin, Camiones):
 
         Label(contenedorFormularioCamion, text="Modelo:", bg="orange").grid(row=2, column=0, sticky=E, pady=5)
         modelos_dict = self.cargarModelos()
-        modelos_inicial = modelos_dict.get(self.marca_var.get(), [])
+        modelos_inicial = [m["nombre"] if isinstance(m, dict) else m for m in modelos_dict.get(self.marca_var.get(), [])]
         modelo_combo = Combobox(contenedorFormularioCamion, textvariable=self.modelo_var, values=modelos_inicial, state="readonly")
         modelo_combo.grid(row=2, column=1, pady=5)
         if modelos_inicial:
             modelo_combo.current(0)
+
+        # Mostrar el valor fijo debajo del modelo (solo texto, no editable)
+        valor_fijo_var = StringVar()
+        Label(contenedorFormularioCamion, text="Valor fijo:", bg="orange").grid(row=3, column=0, sticky=E, pady=5)
+        valor_fijo_label = Label(contenedorFormularioCamion, textvariable=valor_fijo_var, bg="orange")
+        valor_fijo_label.grid(row=3, column=1, pady=5)
+
+        def actualizar_valor_fijo(*args):
+            marca = self.marca_var.get()
+            modelo = self.modelo_var.get()
+            modelos = self.cargarModelos().get(marca, [])
+            for m in modelos:
+                nombre = m["nombre"] if isinstance(m, dict) else m
+                if nombre == modelo and isinstance(m, dict):
+                    valor_fijo_var.set(f"${m.get('valor_fijo', ''):,}")
+                    break
+            else:
+                valor_fijo_var.set("")
+
+        self.marca_var.trace('w', actualizar_valor_fijo)
+        self.modelo_var.trace('w', actualizar_valor_fijo)
+        if modelos_inicial:
+            actualizar_valor_fijo()
 
         def actualizar_modelos(*args):
             modelos_actualizados = self.cargarModelos().get(self.marca_var.get(), [])
@@ -839,7 +1165,7 @@ class InfoCamiones(MenuAdmin, Camiones):
                     c.get("Modelo", ""),
                     c.get("Ingreso", ""),
                     c.get("Disponible", ""),
-                    c.get("Tipo de arriendo", "")
+                    c.get("TipoArriendo", "") or c.get("Tipo de arriendo", ""),
                 ))
 
     def listaCamionesCompletos(self):
@@ -916,6 +1242,7 @@ class InfoCamiones(MenuAdmin, Camiones):
         patente_var = StringVar(value=patente)
         marca_var = StringVar(value=marca)
         modelo_var = StringVar(value=modelo)
+        valor_fijo_var = StringVar()
 
         Label(contenedorFormulario, text="Patente:", bg="orange").grid(row=0, column=0, sticky=E, pady=5)
         Entry(contenedorFormulario, textvariable=patente_var).grid(row=0, column=1, pady=5)
@@ -932,7 +1259,7 @@ class InfoCamiones(MenuAdmin, Camiones):
 
         Label(contenedorFormulario, text="Modelo:", bg="orange").grid(row=2, column=0, sticky=E, pady=5)
         modelos_dict = self.cargarModelos()
-        modelos_inicial = modelos_dict.get(marca, [])
+        modelos_inicial = [m["nombre"] if isinstance(m, dict) else m for m in modelos_dict.get(marca, [])]
         modelo_combo = Combobox(contenedorFormulario, textvariable=modelo_var, values=modelos_inicial, state="readonly")
         modelo_combo.grid(row=2, column=1, pady=5)
         if modelo in modelos_inicial:
@@ -940,12 +1267,68 @@ class InfoCamiones(MenuAdmin, Camiones):
         elif modelos_inicial:
             modelo_combo.current(0)
 
-        def guardarCamion():
-            # Actualiza el camión en tu JSON usando los nuevos valores
-            self.actualizarCamion(patente_var.get(), marca_var.get(), modelo_var.get())
+        # Campo editable para valor fijo debajo de modelo
+        Label(contenedorFormulario, text="Valor fijo:", bg="orange").grid(row=3, column=0, sticky=E, pady=5)
+        Entry(contenedorFormulario, textvariable=valor_fijo_var).grid(row=3, column=1, pady=5)
 
-        Button(contenedorFormulario, text="Guardar", command=guardarCamion).grid(row=3, column=0, columnspan=2, pady=15)
-        Button(contenedorFormulario, text="Volver", command=self.mostrarMenuHorizontalCamiones).grid(row=4, column=0, columnspan=2, pady=15)
+        # Actualiza el valor fijo al cambiar marca/modelo
+        def actualizar_valor_fijo(*args):
+            marca_sel = marca_var.get()
+            modelo_sel = modelo_var.get()
+            modelos = self.cargarModelos().get(marca_sel, [])
+            for m in modelos:
+                nombre = m["nombre"] if isinstance(m, dict) else m
+                if nombre == modelo_sel and isinstance(m, dict):
+                    valor_fijo_var.set(str(m.get('valor_fijo', '')))
+                    break
+            else:
+                valor_fijo_var.set("")
+
+        marca_var.trace('w', actualizar_valor_fijo)
+        modelo_var.trace('w', actualizar_valor_fijo)
+        if modelos_inicial:
+            actualizar_valor_fijo()
+
+        def guardarCamion():
+            nueva_patente = patente_var.get().strip().upper()
+            nueva_marca = marca_var.get().strip().upper()
+            nuevo_modelo = modelo_var.get().strip().upper()
+            nuevo_valor_fijo = valor_fijo_var.get().strip()
+
+            # Validaciones de patente usando validarCamion
+            if not self.validarCamion(nueva_patente, nueva_marca, nuevo_modelo):
+                return
+            if not nuevo_valor_fijo.isdigit() or int(nuevo_valor_fijo) < 10000:
+                messagebox.showerror("Error", "El valor fijo debe ser un número mayor o igual a $10000.")
+                return
+
+            camiones = self.cargarCamiones()
+            actualizado = False
+            for c in camiones:
+                if c.get("Patente", "") == patente:
+                    c["Patente"] = nueva_patente
+                    c["Marca"] = nueva_marca
+                    c["Modelo"] = nuevo_modelo
+                    actualizado = True
+                    break
+            if actualizado:
+                # Actualiza el valor fijo en modelos.json
+                modelos = self.cargarModelos()
+                lista_modelos = modelos.get(nueva_marca, [])
+                for m in lista_modelos:
+                    nombre = m["nombre"] if isinstance(m, dict) else m
+                    if nombre == nuevo_modelo and isinstance(m, dict):
+                        m["valor_fijo"] = int(nuevo_valor_fijo)
+                        break
+                self.guardarModelos(modelos)
+                self.guardarCamiones(camiones)
+                messagebox.showinfo("Éxito", "Camión editado correctamente.")
+                self.mostrarMenuHorizontalCamiones()
+            else:
+                messagebox.showerror("Error", "No se encontró el camión para editar.")
+
+        Button(contenedorFormulario, text="Guardar", command=guardarCamion).grid(row=4, column=0, columnspan=2, pady=15)
+        Button(contenedorFormulario, text="Volver", command=self.mostrarMenuHorizontalCamiones).grid(row=5, column=0, columnspan=2, pady=15)
 
         # Fondo de la ventana
         self.imagen = PhotoImage(file="C:/Users/Crist/Documents/TransporteXpress/TransporteXpress/Imagenes/camionbg.png")
@@ -962,12 +1345,12 @@ class InfoCamiones(MenuAdmin, Camiones):
                 for l in letra:
                     for i in range(1, 4):
                         nuevoId = f"{l}{i}"
-                        if not any(cam.get("idCamion") == nuevoId for cam in camiones):
+                        if not any(c.get("idCamion") == nuevoId for c in camiones):
                             c["idCamion"] = nuevoId
                             c["Patente"] = Patente
                             c["Marca"] = marca
                             c["Modelo"] = modelo
-                            c["Ingreso"]= datetime.now().strftime("%Y-%m-%d")
+                            c["Ingreso"] = datetime.now().strftime("%Y-%m-%d")
                             c["Disponible"] = "Si"
                             asignado = True
                             break
@@ -986,7 +1369,7 @@ class InfoCamiones(MenuAdmin, Camiones):
             for l in letra:
                 for i in range(1, 4):
                     posibleId = f"{l}{i}"
-                    if not any(cam.get("idCamion") == posibleId for cam in camiones):
+                    if not any(c.get("idCamion") == posibleId for c in camiones):
                         nuevoId = posibleId
                         break
                 if nuevoId:
@@ -997,7 +1380,8 @@ class InfoCamiones(MenuAdmin, Camiones):
                     "Patente": Patente,
                     "Marca": marca,
                     "Modelo": modelo,
-                    "Ingreso": datetime.now().strftime("%Y-%m-%d"),
+                    # Fecha en formato chileno dd-mm-yyyy
+                    "Ingreso": datetime.now().strftime("%d-%m-%Y"),
                     "Disponible": "Si"
                 }
                 camiones.append(nuevoCamion)
@@ -1017,7 +1401,7 @@ class InfoCamiones(MenuAdmin, Camiones):
         Button(self.barraHorizontal, text="Enviar a mantención", command=self.mostrarCamionesDisponibles, bg="white", fg="black",
                font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
         Button(self.barraHorizontal, text="Volver", command=self.mostrarMenuHorizontalCamiones, bg="white", fg="black",
-               font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
+               font=("Montserrat", 12)).pack(side=RIGHT, padx=10, pady=10)
 
         self.contenedorListaMantencion = Frame(self.root)
         self.contenedorListaMantencion.pack(fill=BOTH, expand=True, padx=20, pady=20)
@@ -1058,7 +1442,7 @@ class InfoCamiones(MenuAdmin, Camiones):
         Button(self.barraHorizontal, text="Enviar a mantención", command=self.enviarAMantencion, bg="white", fg="black",
                font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
         Button(self.barraHorizontal, text="Volver", command=self.mostrarCamionesNoDisponibles, bg="white", fg="black",
-               font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
+               font=("Montserrat", 12)).pack(side=RIGHT, padx=10, pady=10)
 
         self.contenedorListaDisponibles = Frame(self.root)
         self.contenedorListaDisponibles.pack(fill=BOTH, expand=True, padx=20, pady=20)
@@ -1148,7 +1532,7 @@ class InfoCamiones(MenuAdmin, Camiones):
         Button(self.barraHorizontal, text="Eliminar marca", command=self.eliminarMarca, bg="white", fg="black",
             font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
         Button(self.barraHorizontal, text="Volver", command=self.mostrarMenuHorizontalCamiones, bg="white", fg="black",
-            font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
+            font=("Montserrat", 12)).pack(side=RIGHT, padx=10, pady=10)
 
         self.contenedorListaMarcas = Frame(self.root)
         self.contenedorListaMarcas.pack(fill=BOTH, expand=True, padx=20, pady=20)
@@ -1170,19 +1554,22 @@ class InfoCamiones(MenuAdmin, Camiones):
         Label(top, text="Marca:").pack(padx=10, pady=10)
         marca_var = StringVar()
 
-        # Solo letras y espacios, mínimo 3 letras, máximo 20, NO números
+        # Solo letras y espacios, máximo 20 caracteres, sin dobles espacios, permite espacio al final para seguir escribiendo
         def solo_letras(valor):
+            if not valor:
+                return True
             if len(valor) > 20:
                 return False
-            if valor == "":
-                return True
-            if not all(c.isalpha() or c == " " for c in valor):  # Solo letras y espacios
-                return False
-            if valor[0] == " " or valor[-1] == " ":
+            if any(c.isdigit() for c in valor):
                 return False
             if "  " in valor:
                 return False
-            return True
+            # Permite espacio al final mientras se escribe
+            palabras = valor.strip().split()
+            # Permite escribir hasta 3 palabras, pero no menos al guardar
+            if len(palabras) > 3:
+                return False
+            return all(p.isalpha() for p in palabras)
 
         vcmd = (top.register(solo_letras), '%P')
         Entry(top, textvariable=marca_var, validate='key', validatecommand=vcmd).pack(padx=10, pady=10)
@@ -1248,19 +1635,22 @@ class InfoCamiones(MenuAdmin, Camiones):
         Label(top, text="Nueva marca:").pack(padx=10, pady=10)
         marca_var = StringVar(value=marca_actual)
 
-        # Solo letras y espacios, mínimo 3 letras, máximo 20, NO números
+        # Solo letras y espacios, máximo 20 caracteres, sin dobles espacios, permite espacio al final para seguir escribiendo
         def solo_letras(valor):
+            if not valor:
+                return True
             if len(valor) > 20:
                 return False
-            if valor == "":
-                return True
-            if not all(c.isalpha() or c == " " for c in valor):  # Solo letras y espacios
-                return False
-            if valor[0] == " " or valor[-1] == " ":
+            if any(c.isdigit() for c in valor):
                 return False
             if "  " in valor:
                 return False
-            return True
+            # Permite espacio al final mientras se escribe
+            palabras = valor.strip().split()
+            # Permite escribir hasta 3 palabras, pero no menos al guardar
+            if len(palabras) > 3:
+                return False
+            return all(p.isalpha() for p in palabras)
 
         vcmd = (top.register(solo_letras), '%P')
         Entry(top, textvariable=marca_var, validate='key', validatecommand=vcmd).pack(padx=10, pady=10)
@@ -1268,24 +1658,7 @@ class InfoCamiones(MenuAdmin, Camiones):
         def guardar():
             nueva_marca = marca_var.get().strip().upper()
             letras = nueva_marca.replace(" ", "")
-            if not nueva_marca or len(letras) < 3 or not letras.isalpha():
-                messagebox.showerror("Error", "La marca debe tener al menos 3 letras, solo letras y espacios.")
-                return
-
-            marcas = [m.upper() for m in self.cargarMarcas()]
-            if nueva_marca in marcas and nueva_marca != marca_actual.upper():
-                messagebox.showerror("Error", "La marca ya existe.")
-                return
-
-            # Actualiza la marca en el catálogo
-            marcas = [nueva_marca if m.upper() == marca_actual.upper() else m.upper() for m in self.cargarMarcas()]
-            self.guardarMarcas(marcas)
-            # Actualiza la marca en los camiones existentes
-            camiones = self.cargarCamiones()
-            for c in camiones:
-                if c.get("Marca", "").upper() == marca_actual.upper():
-                    c["Marca"] = nueva_marca
-            self.guardarCamiones(camiones)
+            self.guardarCamiones(self.cargarCamiones())  # Asegura que los camiones estén guardados antes de editar la marca
             # Actualiza la marca en los modelos
             modelos = self.cargarModelos()
             if marca_actual in modelos:
@@ -1319,12 +1692,12 @@ class InfoCamiones(MenuAdmin, Camiones):
         Button(self.barraHorizontal, text="Eliminar modelo", command=self.eliminarModelo, bg="white", fg="black",
             font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
         Button(self.barraHorizontal, text="Volver", command=self.mostrarMenuHorizontalCamiones, bg="white", fg="black",
-            font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
+            font=("Montserrat", 12)).pack(side=RIGHT, padx=10, pady=10)
 
         self.contenedorListaModelos = Frame(self.root)
         self.contenedorListaModelos.pack(fill=BOTH, expand=True, padx=20, pady=20)
 
-        columnas = ("Marca", "Modelo")
+        columnas = ("Marca", "Modelo", "Valor fijo")
         self.treeModelos = ttk.Treeview(self.contenedorListaModelos, columns=columnas, show='headings')
         for col in columnas:
             self.treeModelos.heading(col, text=col)
@@ -1335,7 +1708,10 @@ class InfoCamiones(MenuAdmin, Camiones):
         modelos = self.cargarModelos()
         for marca, lista_modelos in modelos.items():
             for modelo in lista_modelos:
-                self.treeModelos.insert('', 'end', values=(marca, modelo))
+                if isinstance(modelo, dict):
+                    self.treeModelos.insert('', 'end', values=(marca, modelo.get("nombre", ""), modelo.get("valor_fijo", "")))
+                else:
+                    self.treeModelos.insert('', 'end', values=(marca, modelo, ""))
 
     def formularioAgregarModelo(self):
         top = Toplevel(self.root)
@@ -1409,22 +1785,40 @@ class InfoCamiones(MenuAdmin, Camiones):
         vcmd = (top.register(solo_modelo), '%P')
         Entry(top, textvariable=modelo_var, validate='key', validatecommand=vcmd).pack(padx=10, pady=5)
 
+        # Valor fijo: solo números, sin espacios ni caracteres especiales, mínimo 10000
+        Label(top, text="Valor fijo:").pack(padx=10, pady=5)
+        valor_fijo_var = StringVar()
+        def solo_numeros(valor):
+            if not valor:
+                return True
+            if not valor.isdigit() or " " in valor:
+                return False
+            return True
+        vcmd_valor_fijo = (top.register(solo_numeros), '%P')
+        Entry(top, textvariable=valor_fijo_var, validate='key', validatecommand=vcmd_valor_fijo).pack(padx=10, pady=5)
+
         def guardar():
             marca = marca_var.get().strip()
             modelo = modelo_var.get().strip().upper()
-            if not marca or not modelo:
-                messagebox.showerror("Error", "Debe seleccionar una marca y escribir un modelo.")
+            valor_fijo = valor_fijo_var.get().strip()
+            if not marca or not modelo or not valor_fijo:
+                messagebox.showerror("Error", "Debe completar todos los campos.")
                 return
             if "  " in modelo:
                 messagebox.showerror("Error", "El modelo no puede contener doble espacios.")
                 return
+            if not valor_fijo.isdigit() or int(valor_fijo) < 10000:
+                messagebox.showerror("Error", "El valor fijo debe ser un número mayor o igual a $10000.")
+                return
             modelos = self.cargarModelos()
             if marca not in modelos:
                 modelos[marca] = []
-            if modelo in [m.upper() for m in modelos[marca]]:
+            # Verifica que no exista el modelo con ese nombre para esa marca
+            if any(isinstance(m, dict) and m.get("nombre", "").upper() == modelo for m in modelos[marca]):
                 messagebox.showerror("Error", "Ese modelo ya existe para la marca seleccionada.")
                 return
-            modelos[marca].append(modelo)
+            # Guarda modelo y valor fijo juntos (como dict)
+            modelos[marca].append({"nombre": modelo, "valor_fijo": int(valor_fijo)})
             self.guardarModelos(modelos)
             messagebox.showinfo("Éxito", "Modelo agregado correctamente.")
             top.destroy()
@@ -1438,7 +1832,7 @@ class InfoCamiones(MenuAdmin, Camiones):
             messagebox.showwarning("Advertencia", "Debe seleccionar un modelo para eliminar.")
             return
         item = seleccion[0]
-        marca, modelo = self.treeModelos.item(item, "values")
+        marca, modelo, valor_fijo = self.treeModelos.item(item, "values")
 
         # Verifica si hay camiones con esa marca y modelo
         camiones = self.cargarCamiones()
@@ -1455,9 +1849,15 @@ class InfoCamiones(MenuAdmin, Camiones):
         )
         if not confirmar:
             return
+
         modelos = self.cargarModelos()
-        if marca in modelos and modelo in modelos[marca]:
-            modelos[marca].remove(modelo)
+        # Elimina el modelo dict por nombre (y valor fijo si lo deseas)
+        if marca in modelos:
+            modelos[marca] = [
+                m for m in modelos[marca]
+                if not (isinstance(m, dict) and m.get("nombre", "") == modelo)
+            ]
+            # Si no quedan modelos, elimina la marca
             if not modelos[marca]:
                 del modelos[marca]
             self.guardarModelos(modelos)
@@ -1470,16 +1870,17 @@ class InfoCamiones(MenuAdmin, Camiones):
             messagebox.showwarning("Advertencia", "Debe seleccionar un modelo para editar.")
             return
         item = seleccion[0]
-        marca_actual, modelo_actual = self.treeModelos.item(item, "values")
+        marca_actual, modelo_actual, valor_fijo_actual = self.treeModelos.item(item, "values")
 
         top = Toplevel(self.root)
         top.title("Editar Modelo")
         Label(top, text="Marca:").pack(padx=10, pady=5)
         Label(top, text=marca_actual).pack(padx=10, pady=5)
         Label(top, text="Nuevo modelo:").pack(padx=10, pady=5)
-        modelo_var = StringVar(value=modelo_actual)
 
-        # Solo letras y números, sin espacios ni caracteres especiales, máximo 20 caracteres
+        modelo_var = StringVar(value=modelo_actual)
+        valor_fijo_var = StringVar(value=valor_fijo_actual)
+
         def solo_modelo(valor):
             if len(valor) > 20:
                 return False
@@ -1493,36 +1894,50 @@ class InfoCamiones(MenuAdmin, Camiones):
                 return False
             return True
 
-        vcmd = (top.register(solo_modelo), '%P')
-        Entry(top, textvariable=modelo_var, validate='key', validatecommand=vcmd).pack(padx=10, pady=5)
+        def solo_numeros(valor):
+            if not valor:
+                return True
+            if not valor.isdigit() or " " in valor:
+                return False
+            return True
+
+        vcmd_modelo = (top.register(solo_modelo), '%P')
+        Entry(top, textvariable=modelo_var, validate='key', validatecommand=vcmd_modelo).pack(padx=10, pady=5)
+
+        Label(top, text="Valor fijo:").pack(padx=10, pady=5)
+        vcmd_valor_fijo = (top.register(solo_numeros), '%P')
+        Entry(top, textvariable=valor_fijo_var, validate='key', validatecommand=vcmd_valor_fijo).pack(padx=10, pady=5)
 
         def guardar():
             nuevo_modelo = modelo_var.get().strip().upper()
-            if not nuevo_modelo:
-                messagebox.showerror("Error", "Ingrese un modelo.")
+            nuevo_valor_fijo = valor_fijo_var.get().strip()
+            if not nuevo_modelo or not nuevo_valor_fijo:
+                messagebox.showerror("Error", "Debe completar todos los campos.")
                 return
-            if " " in nuevo_modelo:
-                messagebox.showerror("Error", "El modelo no puede contener espacios.")
+            if "  " in nuevo_modelo:
+                messagebox.showerror("Error", "El modelo no puede contener doble espacios.")
                 return
-            if not nuevo_modelo.isalnum():
-                messagebox.showerror("Error", "El modelo solo puede contener letras y números, sin caracteres especiales.")
+            if not nuevo_valor_fijo.isdigit() or int(nuevo_valor_fijo) < 10000:
+                messagebox.showerror("Error", "El valor fijo debe ser un número mayor o igual a $10000.")
                 return
             modelos = self.cargarModelos()
-            if nuevo_modelo in [m.upper() for m in modelos.get(marca_actual, [])] and nuevo_modelo != modelo_actual.upper():
+            # Verifica que no exista el modelo con ese nombre para esa marca (excepto el actual)
+            if any(isinstance(m, dict) and m.get("nombre", "").upper() == nuevo_modelo and m.get("nombre", "") != modelo_actual for m in modelos.get(marca_actual, [])):
                 messagebox.showerror("Error", "Ese modelo ya existe para la marca seleccionada.")
                 return
-            # Actualiza el modelo en la lista de modelos
-            modelos[marca_actual] = [nuevo_modelo if m.upper() == modelo_actual.upper() else m.upper() for m in modelos[marca_actual]]
+            # Actualiza el modelo y valor fijo
+            for idx, m in enumerate(modelos.get(marca_actual, [])):
+                if isinstance(m, dict) and m.get("nombre", "") == modelo_actual:
+                    modelos[marca_actual][idx] = {"nombre": nuevo_modelo, "valor_fijo": int(nuevo_valor_fijo)}
+                    break
+                elif m == modelo_actual:
+                    modelos[marca_actual][idx] = {"nombre": nuevo_modelo, "valor_fijo": int(nuevo_valor_fijo)}
+                    break
             self.guardarModelos(modelos)
-            # Actualiza el modelo en los camiones existentes
-            camiones = self.cargarCamiones()
-            for c in camiones:
-                if c.get("Marca", "").upper() == marca_actual.upper() and c.get("Modelo", "").upper() == modelo_actual.upper():
-                    c["Modelo"] = nuevo_modelo
-            self.guardarCamiones(camiones)
             messagebox.showinfo("Éxito", "Modelo editado correctamente.")
             top.destroy()
             self.mostrarCrudModelos()
+
         Button(top, text="Guardar", command=guardar).pack(pady=10)
 
     def mostrarCrudTipoArriendo(self):
@@ -1537,21 +1952,25 @@ class InfoCamiones(MenuAdmin, Camiones):
         Button(self.barraHorizontal, text="Eliminar tipo", command=self.eliminarTipoArriendo, bg="white", fg="black",
             font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
         Button(self.barraHorizontal, text="Volver", command=self.mostrarMenuHorizontalCamiones, bg="white", fg="black",
-            font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
+            font=("Montserrat", 12)).pack(side=RIGHT, padx=10, pady=10)
 
         self.contenedorListaTipos = Frame(self.root)
         self.contenedorListaTipos.pack(fill=BOTH, expand=True, padx=20, pady=20)
 
-        columnas = ("Tipo de arriendo",)
+        columnas = ("Tipo de arriendo", "Valor diario")
         self.treeTipos = ttk.Treeview(self.contenedorListaTipos, columns=columnas, show='headings')
         self.treeTipos.heading("Tipo de arriendo", text="Tipo de arriendo")
+        self.treeTipos.heading("Valor diario", text="Valor diario")
         self.treeTipos.column("Tipo de arriendo", width=200, anchor='center')
+        self.treeTipos.column("Valor diario", width=120, anchor='center')
         self.treeTipos.pack(fill=BOTH, expand=True)
 
         # Cargar y mostrar tipos
         tipos = self.cargarTiposArriendo()
         for tipo in tipos:
-            self.treeTipos.insert('', 'end', values=(tipo,))
+            # Si tipo es dict, muestra ambos valores
+            if isinstance(tipo, dict):
+                self.treeTipos.insert('', 'end', values=(tipo.get("tipo", ""), tipo.get("valor_diario", "")))
 
     def formularioAgregarTipoArriendo(self):
         top = Toplevel(self.root)
@@ -1559,15 +1978,42 @@ class InfoCamiones(MenuAdmin, Camiones):
         Label(top, text="Tipo de arriendo:").pack(padx=10, pady=10)
         tipo_var = StringVar()
 
-        # Solo letras y espacios, máximo 20 caracteres
+        # Solo letras y espacios, máximo 20 caracteres, sin dobles espacios, permite espacio al final para seguir escribiendo
         def solo_letras(valor):
-            return (valor.replace(" ", "").isalpha() and len(valor) <= 20) or valor == ""
+            if not valor:
+                return True
+            if len(valor) > 20:
+                return False
+            if any(c.isdigit() for c in valor):
+                return False
+            if "  " in valor:
+                return False
+            # Permite espacio al final mientras se escribe
+            palabras = valor.strip().split()
+            # Permite escribir hasta 3 palabras, pero no menos al guardar
+            if len(palabras) > 3:
+                return False
+            return all(p.isalpha() for p in palabras)
 
-        vcmd = (top.register(solo_letras), '%P')
-        Entry(top, textvariable=tipo_var, validate='key', validatecommand=vcmd).pack(padx=10, pady=10)
+        vcmd_tipo = (top.register(solo_letras), '%P')
+        Entry(top, textvariable=tipo_var, validate='key', validatecommand=vcmd_tipo).pack(padx=10, pady=10)
+
+        # Valor diario: solo números, sin espacios ni caracteres especiales
+        Label(top, text="Valor diario:").pack(padx=10, pady=5)
+        valor_var = StringVar()
+        def solo_numeros(valor):
+            if not valor:
+                return True
+            if not valor.isdigit() or " " in valor:
+                return False
+            return True
+        vcmd_valor = (top.register(solo_numeros), '%P')
+        Entry(top, textvariable=valor_var, validate='key', validatecommand=vcmd_valor).pack(padx=10, pady=5)
 
         def guardar():
             tipo = tipo_var.get().strip()
+            valor = valor_var.get().strip()
+            # Validaciones
             if not tipo:
                 messagebox.showerror("Error", "Ingrese un tipo de arriendo.")
                 return
@@ -1577,11 +2023,20 @@ class InfoCamiones(MenuAdmin, Camiones):
             if len(tipo) > 20:
                 messagebox.showerror("Error", "Máximo 20 caracteres.")
                 return
-            tipos = self.cargarTiposArriendo()
-            if tipo in tipos:
-                messagebox.showerror("Error", "Ese tipo ya existe.")
+            if not valor:
+                messagebox.showerror("Error", "Ingrese el valor diario.")
                 return
-            tipos.append(tipo)
+            if not valor.isdigit() or int(valor) < 10000:
+                messagebox.showerror("Error", "El valor diario debe ser un número mayor o igual a $10000.")
+                return
+
+            tipos = self.cargarTiposArriendo()
+            # Filtro para no guardar con el mismo nombre, independiente del valor
+            if any(isinstance(t, dict) and t.get("tipo", "").strip().lower() == tipo.lower() for t in tipos):
+                messagebox.showerror("Error", "Ya existe un tipo de arriendo con ese nombre.")
+                return
+
+            tipos.append({"tipo": tipo, "valor_diario": int(valor)})
             self.guardarTiposArriendo(tipos)
             messagebox.showinfo("Éxito", "Tipo de arriendo agregado correctamente.")
             top.destroy()
@@ -1595,21 +2050,47 @@ class InfoCamiones(MenuAdmin, Camiones):
             return
         item = seleccion[0]
         tipo_actual = self.treeTipos.item(item, "values")[0]
+        valor_actual = self.treeTipos.item(item, "values")[1]
 
         top = Toplevel(self.root)
         top.title("Editar Tipo de Arriendo")
         Label(top, text="Nuevo tipo:").pack(padx=10, pady=10)
         tipo_var = StringVar(value=tipo_actual)
 
-        # Solo letras y espacios, máximo 20 caracteres
+        # Solo letras y espacios, máximo 20 caracteres, sin dobles espacios, permite espacio al final para seguir escribiendo
         def solo_letras(valor):
-            return (valor.replace(" ", "").isalpha() and len(valor) <= 20) or valor == ""
+            if not valor:
+                return True
+            if len(valor) > 20:
+                return False
+            if any(c.isdigit() for c in valor):
+                return False
+            if "  " in valor:
+                return False
+            palabras = valor.strip().split()
+            if len(palabras) > 3:
+                return False
+            return all(p.isalpha() for p in palabras)
 
         vcmd = (top.register(solo_letras), '%P')
         Entry(top, textvariable=tipo_var, validate='key', validatecommand=vcmd).pack(padx=10, pady=10)
 
+        # Valor diario: solo números, sin espacios ni caracteres especiales
+        Label(top, text="Valor diario:").pack(padx=10, pady=5)
+        valor_var = StringVar(value=valor_actual)
+        def solo_numeros(valor):
+            if not valor:
+                return True
+            if not valor.isdigit() or " " in valor:
+                return False
+            return True
+        vcmd_valor = (top.register(solo_numeros), '%P')
+        Entry(top, textvariable=valor_var, validate='key', validatecommand=vcmd_valor).pack(padx=10, pady=5)
+
         def guardar():
             nuevo_tipo = tipo_var.get().strip()
+            nuevo_valor = valor_var.get().strip()
+
             if not nuevo_tipo:
                 messagebox.showerror("Error", "Ingrese un tipo de arriendo.")
                 return
@@ -1619,11 +2100,36 @@ class InfoCamiones(MenuAdmin, Camiones):
             if len(nuevo_tipo) > 20:
                 messagebox.showerror("Error", "Máximo 20 caracteres.")
                 return
-            tipos = self.cargarTiposArriendo()
-            if nuevo_tipo in tipos and nuevo_tipo != tipo_actual:
-                messagebox.showerror("Error", "Ese tipo ya existe.")
+            # Validaciones
+            if not nuevo_tipo:
+                messagebox.showerror("Error", "Ingrese un tipo de arriendo.")
                 return
-            tipos = [nuevo_tipo if t == tipo_actual else t for t in tipos]
+            if not nuevo_tipo.replace(" ", "").isalpha():
+                messagebox.showerror("Error", "Solo se permiten letras y espacios.")
+                return
+            if len(nuevo_tipo) > 20:
+                messagebox.showerror("Error", "Máximo 20 caracteres.")
+                return
+            if not nuevo_valor:
+                messagebox.showerror("Error", "Ingrese el valor diario.")
+                return
+            if not nuevo_valor.isdigit() or int(nuevo_valor) < 10000:
+                messagebox.showerror("Error", "El valor diario debe ser mayor o igual a $10000.")
+                return
+
+            tipos = self.cargarTiposArriendo()
+            # Filtro para no guardar con el mismo nombre, independiente del valor
+            if any(isinstance(t, dict) and t.get("tipo", "").strip().lower() == nuevo_tipo.lower() and t.get("tipo", "") != tipo_actual for t in tipos):
+                messagebox.showerror("Error", "Ya existe un tipo de arriendo con ese nombre.")
+                return
+
+            # Actualiza el tipo y valor
+            for t in tipos:
+                if isinstance(t, dict) and t.get("tipo", "") == tipo_actual:
+                    t["tipo"] = nuevo_tipo
+                    t["valor_diario"] = int(nuevo_valor)
+                    break
+
             self.guardarTiposArriendo(tipos)
             messagebox.showinfo("Éxito", "Tipo de arriendo editado correctamente.")
             top.destroy()
@@ -1641,20 +2147,18 @@ class InfoCamiones(MenuAdmin, Camiones):
         if not confirmar:
             return
         tipos = self.cargarTiposArriendo()
-        tipos = [t for t in tipos if t != tipo]
+        # Filtra correctamente si tipo es dict
+        tipos = [t for t in tipos if not (isinstance(t, dict) and t.get("tipo", "") == tipo)]
         self.guardarTiposArriendo(tipos)
         messagebox.showinfo("Éxito", "Tipo de arriendo eliminado correctamente.")
         self.mostrarCrudTipoArriendo()
 
     def cargarTiposArriendo(self):
+        import os
         if not os.path.exists('tipos_arriendo.json'):
             return []
         with open('tipos_arriendo.json', 'r') as file:
             return json.load(file)
-
-    def guardarTiposArriendo(self, tipos):
-        with open('tipos_arriendo.json', 'w') as file:
-            json.dump(tipos, file, indent=4)
 
     def formularioAgregarCliente(self):
         self.limpiarWidgets()
@@ -1845,6 +2349,20 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
         self.root = root
         self.menuInicial()
 
+    def cargarTiposArriendo(self):
+        import os
+        if not os.path.exists('tipos_arriendo.json'):
+            return []
+        with open('tipos_arriendo.json', 'r') as file:
+            return json.load(file)
+
+    def cargarModelos(self):
+        import os
+        if not os.path.exists('modelos.json'):
+            return {}
+        with open('modelos.json', 'r') as file:
+            return json.load(file)
+
     def menuInicial(self):
         self.limpiarWidgets()
 
@@ -1853,9 +2371,7 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
 
         botones = [
             ("Editar perfil", self.editarPerfil),
-            ("Carrito", self.mostrarCarrito),
-            ("Arrendar camión", self.arrendarCamion), 
-            ("Volver", self.salir)
+            ("Carrito", self.mostrarCarrito)
         ]
 
         for texto, comando in botones:
@@ -1865,6 +2381,7 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
         self.contenedorMenu.pack(expand=True)
 
         Button(self.barraHorizontal, text="Eliminar usuario", command=self.eliminarUsuario, font=("Montserrat", 12)).pack(side=RIGHT, padx=10, pady=10)
+        Button(self.barraHorizontal, text="Cerrar sesión", command=self.salir, font=("Montserrat", 12)).pack(side=RIGHT, padx=10, pady=10)
 
         # Contenedor para la lista de camiones debajo de la barra
         self.contenedorListaCamiones = Frame(self.root)
@@ -1914,18 +2431,8 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
         self.crearInterfaz()
 
     def validarRut(self, rut):
-        # Elimina guiones y puntos
-        rut = rut.replace("-", "").replace(".", "").upper()
-        if not (8 <= len(rut) <= 9):
-            messagebox.showerror("Error", "El RUT debe tener entre 8 y 9 caracteres.")
-            return False
-
         cuerpo = rut[:-1]
         dv = rut[-1]
-
-        if not cuerpo.isdigit():
-            messagebox.showerror("Error", "El RUT debe tener solo números en la parte numérica.")
-            return False
 
         # Calcular dígito verificador usando módulo 11
         suma = 0
@@ -1968,7 +2475,7 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
 
         # Teléfono: 9 dígitos, solo números
         if not telefono.isdigit() or len(telefono) != 9:
-            messagebox.showerror("Error", "El teléfono debe tener exactamente 9 dígitos y solo números.")
+            messagebox.showerror("Error", "El teléfono debe tener 9 dígitos.")
             return False
 
         elif telefono == "123456789" or telefono == "987654321" or telefono == len(telefono) * telefono[0]:
@@ -1984,6 +2491,7 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
         elif len(direccion) == 3:
             messagebox.showerror("Error", "Ingrese la dirección completa.")
             return False
+
         else:
             self.actualizarClientes(
             self.rut.get(),
@@ -2157,17 +2665,22 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
         self.barraHorizontal = Frame(self.root, bg="orange", height=50)
         self.barraHorizontal.pack(side=TOP, fill=X)
 
+        Button(self.barraHorizontal, text="Agregar", command=self.formularioAgregarCamionCarrito, bg="white", fg="black",
+        font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
         Button(self.barraHorizontal, text="Editar", command=self.editarCamionCarrito, bg="white", fg="black",
             font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
         Button(self.barraHorizontal, text="Eliminar", command=self.eliminarCamionCarrito, bg="white", fg="black",
             font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
+        Button(self.barraHorizontal, text="Siguiente", command=self.menuContratoArriendo, bg="white", fg="black",
+        font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
         Button(self.barraHorizontal, text="Volver", command=self.menuInicial, bg="white", fg="black",
-            font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
+            font=("Montserrat", 12)).pack(side=RIGHT, padx=10, pady=10)
 
         self.contenedorCarrito = Frame(self.root)
         self.contenedorCarrito.pack(fill=BOTH, expand=True, padx=20, pady=20)
 
-        columnas = ("Patente", "Marca", "Modelo", "Fecha de ingreso", "Disponible", "Tipo de arriendo")
+        # Agrega columna "Valor fijo" después de "Modelo"
+        columnas = ("Patente", "Marca", "Modelo", "Valor fijo", "Fecha de ingreso", "Disponible", "Tipo de arriendo")
         self.treeCarrito = ttk.Treeview(self.contenedorCarrito, columns=columnas, show='headings')
 
         for col in columnas:
@@ -2178,18 +2691,33 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
 
         # Cargar solo camiones arrendados por el usuario actual
         camiones = self.cargarCamiones()
+        modelos_dict = self.cargarModelos()
+        tipos_arriendo = self.cargarTiposArriendo()
         for c in camiones:
             if (
                 c.get("Disponible", "").lower() == "en arriendo"
                 and c.get("ArrendadoPor", "") == self.nombreUsuarioSesionActual
             ):
+                marca = c.get("Marca", "")
+                modelo = c.get("Modelo", "")
+                valor_fijo = c.get("valor_fijo")
+                if valor_fijo is None or valor_fijo == "":
+                    # Buscar en modelos.json si no está en el camión
+                    modelos = modelos_dict.get(marca, [])
+                    for m in modelos:
+                        nombre = m["nombre"] if isinstance(m, dict) else m
+                        if nombre == modelo and isinstance(m, dict):
+                            valor_fijo = m.get('valor_fijo', 0)
+                            break
+                valor_fijo_str = f"${valor_fijo:,}" if valor_fijo else ""
                 self.treeCarrito.insert('', 'end', values=(
                     c.get("Patente", ""),
-                    c.get("Marca", ""),
-                    c.get("Modelo", ""),
+                    marca,
+                    modelo,
+                    valor_fijo_str,
                     c.get("Ingreso", ""),
                     c.get("Disponible", ""),
-                    c.get("TipoArriendo", "")
+                    c.get("TipoArriendo", "") or c.get("Tipo de arriendo", ""),
                 ))
 
         # Fondo de la ventana
@@ -2197,92 +2725,101 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
         imagenLabel = Label(self.root, image=self.imagen)
         imagenLabel.pack(side=LEFT, fill="both", expand=TRUE)
 
-    def arrendarCamion(self):
-        seleccion = self.treeCamiones.selection()
-        if not seleccion:
-            messagebox.showwarning("Advertencia", "Debe seleccionar un camión para arrendar.")
-            return
-        item = seleccion[0]
-        valores = self.treeCamiones.item(item, "values")
-        patente = valores[0]
+    def formularioAgregarCamionCarrito(self):
+        self.limpiarWidgets()
+        contenedorFormulario = Frame(self.root, bg="orange")
+        contenedorFormulario.pack(padx=20, pady=20)
 
-        # Buscar el id_camion por patente
+        # Cargar camiones disponibles
         camiones = self.cargarCamiones()
-        id_camion = None
-        for c in camiones:
-            if c.get("Patente") == patente:
-                id_camion = c.get("idCamion")
-                break
-        if not id_camion:
-            messagebox.showerror("Error", "No se encontró el camión seleccionado.")
-            return
+        camiones_disponibles = [c for c in camiones if c.get("Disponible", "").lower() == "si"]
+        patentes = [c["Patente"] for c in camiones_disponibles]
 
-        # Mostrar ventana para elegir tipo de arriendo
-        top = Toplevel(self.root)
-        top.title("Seleccionar tipo de arriendo")
-        Label(top, text="Tipo de arriendo:").pack(padx=10, pady=10)
-        tipos = self.cargarTiposArriendo()
-        tipo_var = StringVar()
-        tipo_combo = Combobox(top, textvariable=tipo_var, values=tipos, state="readonly")
-        tipo_combo.pack(padx=10, pady=10)
-        if tipos:
-            tipo_combo.current(0)
-        def confirmar():
-            tipo_seleccionado = tipo_var.get()
-            if not tipo_seleccionado:
-                messagebox.showerror("Error", "Debe seleccionar un tipo de arriendo.")
-                return
-            camiones = self.cargarCamiones()
-            encontrado = False
-            for c in camiones:
-                if c.get("idCamion") == id_camion and c.get("Disponible", "").lower() == "si":
-                    c["Disponible"] = "En arriendo"
-                    c["TipoArriendo"] = tipo_seleccionado
-                    c["ArrendadoPor"] = self.nombreUsuarioSesionActual 
-                    encontrado = True
+        Label(contenedorFormulario, text="Patente de camión:", bg="orange").grid(row=0, column=0, sticky=E, pady=5)
+        patente_var = StringVar()
+        patente_combo = Combobox(contenedorFormulario, textvariable=patente_var, values=patentes, state="readonly")
+        patente_combo.grid(row=0, column=1, pady=5)
+        if patentes:
+            patente_combo.current(0)
+
+        # Mostrar marca, modelo y valor fijo del camión
+        marca_var = StringVar()
+        modelo_var = StringVar()
+        valor_fijo_var = StringVar()  # Define valor_fijo_var aquí
+        Label(contenedorFormulario, text="Marca:", bg="orange").grid(row=1, column=0, sticky=E, pady=5)
+        Label(contenedorFormulario, textvariable=marca_var, bg="orange").grid(row=1, column=1, pady=5)
+        Label(contenedorFormulario, text="Modelo:", bg="orange").grid(row=2, column=0, sticky=E, pady=5)
+        Label(contenedorFormulario, textvariable=modelo_var, bg="orange").grid(row=2, column=1, pady=5)
+        Label(contenedorFormulario, text="Valor fijo:", bg="orange").grid(row=3, column=0, sticky=E, pady=5)
+        Label(contenedorFormulario, textvariable=valor_fijo_var, bg="orange").grid(row=3, column=1, pady=5)
+
+        def actualizar_marca_modelo(*args):
+            modelos_dict = self.cargarModelos()  # Cargar modelos dentro del método
+            patente = patente_var.get()
+            for c in camiones_disponibles:
+                if c["Patente"] == patente:
+                    marca = c.get("Marca", "")
+                    modelo = c.get("Modelo", "")
+                    marca_var.set(marca)
+                    modelo_var.set(modelo)
+                    # Obtener valor fijo desde modelos.json
+                    valor_fijo = c.get("valor_fijo")
+                    if valor_fijo is None or valor_fijo == "":
+                        modelos = modelos_dict.get(marca, [])
+                        for m in modelos:
+                            nombre = m["nombre"] if isinstance(m, dict) else m
+                            if nombre == modelo and isinstance(m, dict):
+                                valor_fijo = m.get('valor_fijo', 0)
+                                break
+                    valor_fijo_str = f"${valor_fijo:,}" if valor_fijo else ""
+                    valor_fijo_var.set(valor_fijo_str)
                     break
-            if encontrado:
-                self.guardarCamiones(camiones)
-                messagebox.showinfo("Éxito", f"Camión arrendado como '{tipo_seleccionado}'.")
-                top.destroy()
-                self.menuInicial()  # Refresca la lista de camiones
             else:
-                messagebox.showerror("Error", "No se pudo arrendar el camión seleccionado.")
-        Button(top, text="Confirmar", command=confirmar).pack(pady=10)
-    def cargarTiposArriendo(self):
-        if not os.path.exists('tipos_arriendo.json'):
-            return []
-        with open('tipos_arriendo.json', 'r') as file:
-            return json.load(file)
+                marca_var.set("")
+                modelo_var.set("")
+                valor_fijo_var.set("")
 
-    def guardarTiposArriendo(self, tipos):
-        with open('tipos_arriendo.json', 'w') as file:
-            json.dump(tipos, file, indent=4)
+        patente_var.trace('w', actualizar_marca_modelo)
+        if patentes:
+            actualizar_marca_modelo()
 
-    def eliminarCamionCarrito(self):
-        seleccion = self.treeCarrito.selection()
-        if not seleccion:
-            messagebox.showwarning("Advertencia", "Debe seleccionar un camión para eliminar del carrito.")
-            return
-        item = seleccion[0]
-        valores = self.treeCarrito.item(item, "values")
-        patente = valores[0]
+        # Selección de tipo de arriendo (debajo de valor fijo)
+        tipos = self.cargarTiposArriendo()
+        tipos_opciones = [
+            f'{t["tipo"]}, ${t["valor_diario"]:,}' for t in tipos if isinstance(t, dict)
+        ]
+        Label(contenedorFormulario, text="Tipo de arriendo:", bg="orange").grid(row=4, column=0, sticky=E, pady=5)
+        tipo_var = StringVar()
+        tipo_combo = Combobox(contenedorFormulario, textvariable=tipo_var, values=tipos_opciones, state="readonly")
+        tipo_combo.grid(row=4, column=1, pady=5)
+        if tipos_opciones:
+            tipo_combo.current(0)
 
-        camiones = self.cargarCamiones()
-        encontrado = False
-        for c in camiones:
-            if c.get("Patente") == patente and c.get("ArrendadoPor", "") == self.nombreUsuarioSesionActual:
-                c["Disponible"] = "Si"
-                c["ArrendadoPor"] = ""
-                c["TipoArriendo"] = ""
-                encontrado = True
-                break
-        if encontrado:
-            self.guardarCamiones(camiones)
-            messagebox.showinfo("Éxito", "Camión devuelto a disponibles.")
-            self.mostrarCarrito()
-        else:
-            messagebox.showerror("Error", "No se pudo devolver el camión.")
+        def guardar():
+            patente = patente_var.get()
+            tipo_arriendo_str = tipo_var.get()
+            if not patente or not tipo_arriendo_str:
+                messagebox.showerror("Error", "Debe seleccionar camión y tipo de arriendo.")
+                return
+            tipo_arriendo = tipo_arriendo_str.split(",")[0].strip()
+            for c in camiones:
+                if c.get("Patente") == patente and c.get("Disponible", "").lower() == "si":
+                    c["Disponible"] = "En arriendo"
+                    c["TipoArriendo"] = tipo_arriendo
+                    c["ArrendadoPor"] = self.nombreUsuarioSesionActual
+                    self.guardarCamiones(camiones)
+                    messagebox.showinfo("Éxito", f"Camión {patente} agregado al carrito.")
+                    self.mostrarCarrito()
+                    return
+            messagebox.showerror("Error", "No se pudo agregar el camión al carrito.")
+
+        Button(contenedorFormulario, text="Guardar", command=guardar).grid(row=5, column=0, columnspan=2, pady=15)
+        Button(contenedorFormulario, text="Volver", command=self.mostrarCarrito).grid(row=6, column=0, columnspan=2, pady=5)
+
+        # Fondo de la ventana
+        self.imagen = PhotoImage(file="C:/Users/Crist/Documents/TransporteXpress/TransporteXpress/Imagenes/camionbg.png")
+        imagenLabel = Label(self.root, image=self.imagen)
+        imagenLabel.pack(side=LEFT, fill="both", expand=TRUE)
 
     def editarCamionCarrito(self):
         seleccion = self.treeCarrito.selection()
@@ -2294,18 +2831,15 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
         patente = valores[0]
 
         camiones = self.cargarCamiones()
-        camion = None
-        for c in camiones:
-            if c.get("Patente") == patente and c.get("ArrendadoPor", "") == self.nombreUsuarioSesionActual:
-                camion = c
-                break
+        camion = next((c for c in camiones if c.get("Patente") == patente and c.get("ArrendadoPor") == self.nombreUsuarioSesionActual), None)
         if not camion:
             messagebox.showerror("Error", "No se encontró el camión seleccionado.")
             return
 
+        # Mostrar formulario para editar tipo de arriendo
         top = Toplevel(self.root)
         top.title("Editar tipo de arriendo")
-        Label(top, text="Tipo de arriendo:").pack(padx=10, pady=10)
+        Label(top, text=f"Patente: {patente}").pack(padx=10, pady=10)
         tipos = self.cargarTiposArriendo()
         tipo_var = StringVar(value=camion.get("TipoArriendo", ""))
         tipo_combo = Combobox(top, textvariable=tipo_var, values=tipos, state="readonly")
@@ -2314,93 +2848,107 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
             tipo_combo.set(camion.get("TipoArriendo", ""))
         elif tipos:
             tipo_combo.current(0)
+
         def guardar():
-            tipo_seleccionado = tipo_var.get()
-            if not tipo_seleccionado:
+            nuevo_tipo = tipo_var.get()
+            if not nuevo_tipo:
                 messagebox.showerror("Error", "Debe seleccionar un tipo de arriendo.")
                 return
-            camion["TipoArriendo"] = tipo_seleccionado
+            camion["TipoArriendo"] = nuevo_tipo
             self.guardarCamiones(camiones)
             messagebox.showinfo("Éxito", "Tipo de arriendo actualizado.")
             top.destroy()
             self.mostrarCarrito()
-        Button(top, text="Guardar", command=guardar).pack(pady=10)
-  
-    def formularioEditarAsociacion(self):
-        seleccion = self.treeConductores.selection()
-        if not seleccion:
-            messagebox.showwarning("Advertencia", "Debe seleccionar un conductor para editar la asociación.")
-            return
-        item = seleccion[0]
-        valores = self.treeConductores.item(item, "values")
-        rut_conductor = valores[0]
-        nombre_conductor = valores[1]
-
-        camiones = self.cargarCamiones()
-        camiones_asociados = [c for c in camiones if c.get("ConductorRUT") == rut_conductor]
-        if not camiones_asociados:
-            messagebox.showinfo("Info", "El conductor no tiene camión asociado.")
-            return
-
-        top = Toplevel(self.root)
-        top.title("Editar asociación de camión")
-        Label(top, text=f"Conductor: {nombre_conductor} ({rut_conductor})").pack(padx=10, pady=10)
-
-        # Mostrar camión actual y permitir cambiarlo
-        Label(top, text="Camión actual:").pack()
-        Label(top, text=camiones_asociados[0]["Patente"]).pack()
-
-        camiones_disponibles = [c for c in camiones if not c.get("ConductorRUT") or c.get("ConductorRUT") == rut_conductor]
-        patente_var = StringVar(value=camiones_asociados[0]["Patente"])
-        patentes = [c["Patente"] for c in camiones_disponibles]
-        patente_combo = Combobox(top, textvariable=patente_var, values=patentes, state="readonly")
-        patente_combo.pack(padx=10, pady=10)
-        if patentes:
-            patente_combo.set(camiones_asociados[0]["Patente"])
-
-        def guardar():
-            nueva_patente = patente_var.get()
-            if not nueva_patente:
-                messagebox.showerror("Error", "Debe seleccionar un camión.")
-                return
-            # Desasocia el camión anterior
-            for c in camiones:
-                if c.get("ConductorRUT") == rut_conductor:
-                    c["ConductorRUT"] = ""
-            # Asocia el nuevo camión
-            for c in camiones:
-                if c["Patente"] == nueva_patente:
-                    c["ConductorRUT"] = rut_conductor
-                    break
-            self.guardarCamiones(camiones)
-            messagebox.showinfo("Éxito", f"Asociación actualizada.")
-            top.destroy()
-            self.listaConductores()
 
         Button(top, text="Guardar", command=guardar).pack(pady=10)
-    
-    def eliminarAsociacionCamion(self):
-        seleccion = self.treeConductores.selection()
+
+    def eliminarCamionCarrito(self):
+        seleccion = self.treeCarrito.selection()
         if not seleccion:
-            messagebox.showwarning("Advertencia", "Debe seleccionar un conductor para eliminar la asociación.")
+            messagebox.showwarning("Advertencia", "Debe seleccionar un camión para eliminar del carrito.")
             return
         item = seleccion[0]
-        valores = self.treeConductores.item(item, "values")
-        rut_conductor = valores[0]
+        valores = self.treeCarrito.item(item, "values")
+        patente = valores[0]
+
+        # Confirmación antes de eliminar
+        confirmar = messagebox.askyesno("Confirmar", f"¿Está seguro que desea eliminar el camión con patente {patente} del carrito?")
+        if not confirmar:
+            return
 
         camiones = self.cargarCamiones()
         encontrado = False
         for c in camiones:
-            if c.get("ConductorRUT") == rut_conductor:
-                c["ConductorRUT"] = ""
+            if c.get("Patente") == patente and c.get("ArrendadoPor") == self.nombreUsuarioSesionActual:
+                c["Disponible"] = "Si"
+                c["TipoArriendo"] = ""
+                c["ArrendadoPor"] = ""
                 encontrado = True
                 break
         if encontrado:
             self.guardarCamiones(camiones)
-            messagebox.showinfo("Éxito", "Asociación eliminada.")
-            self.listaConductores()
+            messagebox.showinfo("Éxito", f"Camión {patente} eliminado del carrito.")
+            self.mostrarCarrito()
         else:
-            messagebox.showinfo("Info", "El conductor no tiene camión asociado.")
+            messagebox.showerror("Error", "No se pudo eliminar el camión del carrito.")
+
+    def menuContratoArriendo(self):
+        self.limpiarWidgets()
+        barra = Frame(self.root, bg="orange", height=50)
+        barra.pack(side=TOP, fill=X)
+
+        Button(barra, text="Nuevo contrato de arriendo", command=self.nuevoContratoArriendo, bg="white", fg="black",
+               font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
+        Button(barra, text="Eliminar contrato", command=self.eliminarContratoArriendo, bg="white", fg="black",
+               font=("Montserrat", 12)).pack(side=LEFT, padx=10, pady=10)
+        Button(barra, text="Volver", command=self.mostrarCarrito, bg="white", fg="black",
+               font=("Montserrat", 12)).pack(side=RIGHT, padx=10, pady=10)
+
+        # Aquí puedes mostrar información relevante del contrato si lo deseas
+        contenedor = Frame(self.root)
+        contenedor.pack(fill=BOTH, expand=True, padx=20, pady=20)
+        Label(contenedor, text="Opciones de contrato de arriendo", font=("Montserrat", 14), bg="orange").pack(pady=20)
+
+    def nuevoContratoArriendo(self):
+        self.limpiarWidgets()
+        contenedor = Frame(self.root, bg="orange")
+        contenedor.pack(fill=BOTH, expand=True, padx=20, pady=20)
+
+        Label(contenedor, text="Nuevo contrato de arriendo", font=("Montserrat", 16), bg="orange").pack(pady=10)
+
+        camiones = self.cargarCamiones()
+        camiones_carrito = [
+            c for c in camiones
+            if c.get("Disponible", "").lower() == "en arriendo"
+            and c.get("ArrendadoPor", "") == self.nombreUsuarioSesionActual
+        ]
+
+        if not camiones_carrito:
+            Label(contenedor, text="No hay camiones en el carrito.", bg="orange", font=("Montserrat", 12)).pack(pady=10)
+        else:
+            for idx, camion in enumerate(camiones_carrito):
+                frame_camion = Frame(contenedor, bg="orange", relief=RIDGE, bd=2)
+                frame_camion.pack(fill=X, padx=10, pady=5)
+
+                Label(frame_camion, text=f"Camión {idx+1}", font=("Montserrat", 12, "bold"), bg="orange").grid(row=0, column=0, columnspan=2, sticky=W, pady=2)
+                Label(frame_camion, text="Patente:", bg="orange", font=("Montserrat", 11)).grid(row=1, column=0, sticky=E, pady=2)
+                Label(frame_camion, text=camion.get("Patente", ""), bg="orange", font=("Montserrat", 11)).grid(row=1, column=1, sticky=W, pady=2)
+                Label(frame_camion, text="Marca:", bg="orange", font=("Montserrat", 11)).grid(row=2, column=0, sticky=E, pady=2)
+                Label(frame_camion, text=camion.get("Marca", ""), bg="orange", font=("Montserrat", 11)).grid(row=2, column=1, sticky=W, pady=2)
+                Label(frame_camion, text="Modelo:", bg="orange", font=("Montserrat", 11)).grid(row=3, column=0, sticky=E, pady=2)
+                Label(frame_camion, text=camion.get("Modelo", ""), bg="orange", font=("Montserrat", 11)).grid(row=3, column=1, sticky=W, pady=2)
+                Label(frame_camion, text="Tipo de arriendo:", bg="orange", font=("Montserrat", 11)).grid(row=4, column=0, sticky=E, pady=2)
+                Label(frame_camion, text=camion.get("TipoArriendo", ""), bg="orange", font=("Montserrat", 11)).grid(row=4, column=1, sticky=W, pady=2)
+
+        Button(contenedor, text="Volver", command=self.menuContratoArriendo, font=("Montserrat", 12)).pack(pady=20)
+
+        # Fondo de la ventana
+        self.imagen = PhotoImage(file="C:/Users/Crist/Documents/TransporteXpress/TransporteXpress/Imagenes/camionbg.png")
+        imagenLabel = Label(self.root, image=self.imagen)
+        imagenLabel.pack(side=LEFT, fill="both", expand=TRUE)
+
+    def eliminarContratoArriendo(self):
+        messagebox.showinfo("Contrato", "Funcionalidad de eliminar contrato de arriendo.")
 
 # Clase principal para ejecutar la aplicación
 if __name__=="__main__":
