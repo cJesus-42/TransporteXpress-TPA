@@ -1261,7 +1261,6 @@ class InfoCamiones(MenuAdmin, Camiones):
         self.actualizarCamion(patente, marca, modelo)
 
     def listaCamiones(self):
-        self.actualizarEstadoCamiones()  # Actualiza el estado de los camiones antes de cargar la lista
 
         # Limpia la tabla antes de cargar datos nuevos
         for item in self.treeCamiones.get_children():
@@ -1677,7 +1676,7 @@ class InfoCamiones(MenuAdmin, Camiones):
                 return False
             # Permite espacio al final mientras se escribe
             palabras = valor.strip().split()
-            # Permite escribir hasta 3 palabras, pero no menos al guardar
+            # Permite escribir mínimo 3 palabras, pero no menos al guardar
             if len(palabras) > 3:
                 return False
             return all(p.isalpha() for p in palabras)
@@ -1746,7 +1745,7 @@ class InfoCamiones(MenuAdmin, Camiones):
         Label(top, text="Nueva marca:").pack(padx=10, pady=10)
         marca_var = StringVar(value=marca_actual)
 
-        # Solo letras y espacios, máximo 20 caracteres, sin dobles espacios, permite espacio al final para seguir escribiendo
+        # Validación: Solo letras y espacios, máximo 20 caracteres, sin dobles espacios
         def solo_letras(valor):
             if not valor:
                 return True
@@ -1756,9 +1755,7 @@ class InfoCamiones(MenuAdmin, Camiones):
                 return False
             if "  " in valor:
                 return False
-            # Permite espacio al final mientras se escribe
             palabras = valor.strip().split()
-            # Permite escribir hasta 3 palabras, pero no menos al guardar
             if len(palabras) > 3:
                 return False
             return all(p.isalpha() for p in palabras)
@@ -1768,13 +1765,32 @@ class InfoCamiones(MenuAdmin, Camiones):
 
         def guardar():
             nueva_marca = marca_var.get().strip().upper()
-            letras = nueva_marca.replace(" ", "")
-            self.guardarCamiones(self.cargarCamiones())  # Asegura que los camiones estén guardados antes de editar la marca
+            if not nueva_marca or len(nueva_marca.replace(" ", "")) < 3:
+                messagebox.showerror("Error", "La marca debe tener al menos 3 letras.")
+                return
+
+            marcas = self.cargarMarcas()
+            if nueva_marca in marcas:
+                messagebox.showerror("Error", "La marca ya existe.")
+                return
+
             # Actualiza la marca en los modelos
             modelos = self.cargarModelos()
             if marca_actual in modelos:
                 modelos[nueva_marca] = modelos.pop(marca_actual)
                 self.guardarModelos(modelos)
+
+            # Actualiza la marca en los camiones asociados
+            camiones = self.cargarCamiones()
+            for camion in camiones:
+                if camion.get("Marca", "").upper() == marca_actual.upper():
+                    camion["Marca"] = nueva_marca
+            self.guardarCamiones(camiones)
+
+            # Actualiza la lista de marcas
+            marcas = [m if m != marca_actual else nueva_marca for m in marcas]
+            self.guardarMarcas(marcas)
+
             messagebox.showinfo("Éxito", "Marca editada correctamente.")
             top.destroy()
             self.mostrarCrudMarcas()
@@ -1943,7 +1959,7 @@ class InfoCamiones(MenuAdmin, Camiones):
             messagebox.showwarning("Advertencia", "Debe seleccionar un modelo para eliminar.")
             return
         item = seleccion[0]
-        marca, modelo, valor_fijo = self.treeModelos.item(item, "values")
+        marca, modelo, valor_fijo = self.treeModelos.item(item, "values")  ################################################
 
         # Verifica si hay camiones con esa marca y modelo
         camiones = self.cargarCamiones()
@@ -2031,11 +2047,13 @@ class InfoCamiones(MenuAdmin, Camiones):
             if not nuevo_valor_fijo.isdigit() or int(nuevo_valor_fijo) < 10000:
                 messagebox.showerror("Error", "El valor diario debe ser un número mayor o igual a $10000.")
                 return
+
             modelos = self.cargarModelos()
             # Verifica que no exista el modelo con ese nombre para esa marca (excepto el actual)
             if any(isinstance(m, dict) and m.get("nombre", "").upper() == nuevo_modelo and m.get("nombre", "") != modelo_actual for m in modelos.get(marca_actual, [])):
                 messagebox.showerror("Error", "Ese modelo ya existe para la marca seleccionada.")
                 return
+
             # Actualiza el modelo y valor fijo
             for idx, m in enumerate(modelos.get(marca_actual, [])):
                 if isinstance(m, dict) and m.get("nombre", "") == modelo_actual:
@@ -2044,7 +2062,16 @@ class InfoCamiones(MenuAdmin, Camiones):
                 elif m == modelo_actual:
                     modelos[marca_actual][idx] = {"nombre": nuevo_modelo, "valor_fijo": int(nuevo_valor_fijo)}
                     break
+
             self.guardarModelos(modelos)
+
+            # Actualiza el modelo en los camiones asociados
+            camiones = self.cargarCamiones()
+            for camion in camiones:
+                if camion.get("Marca", "").upper() == marca_actual.upper() and camion.get("Modelo", "").upper() == modelo_actual.upper():
+                    camion["Modelo"] = nuevo_modelo
+            self.guardarCamiones(camiones)
+
             messagebox.showinfo("Éxito", "Modelo editado correctamente.")
             top.destroy()
             self.mostrarCrudModelos()
@@ -2122,7 +2149,7 @@ class InfoCamiones(MenuAdmin, Camiones):
         Entry(top, textvariable=valor_var, validate='key', validatecommand=vcmd_valor).pack(padx=10, pady=5)
 
         def guardar():
-            tipo = tipo_var.get().strip()
+            tipo = tipo_var.get().strip().capitalize()
             valor = valor_var.get().strip()
             # Validaciones
             if not tipo:
@@ -2157,7 +2184,7 @@ class InfoCamiones(MenuAdmin, Camiones):
     def formularioEditarTipoArriendo(self):
         seleccion = self.treeTipos.selection()
         if not seleccion:
-            messagebox.showwarning("Advertencia", "Debe seleccionar un tipo para editar.")
+            messagebox.showwarning("Advertencia", "Debe seleccionar un tipo de arriendo para editar.")
             return
         item = seleccion[0]
         tipo_actual = self.treeTipos.item(item, "values")[0]
@@ -2168,7 +2195,7 @@ class InfoCamiones(MenuAdmin, Camiones):
         Label(top, text="Nuevo tipo:").pack(padx=10, pady=10)
         tipo_var = StringVar(value=tipo_actual)
 
-        # Solo letras y espacios, máximo 20 caracteres, sin dobles espacios, permite espacio al final para seguir escribiendo
+        # Validación: Solo letras y espacios, máximo 20 caracteres, sin dobles espacios
         def solo_letras(valor):
             if not valor:
                 return True
@@ -2183,18 +2210,20 @@ class InfoCamiones(MenuAdmin, Camiones):
                 return False
             return all(p.isalpha() for p in palabras)
 
-        vcmd = (top.register(solo_letras), '%P')
-        Entry(top, textvariable=tipo_var, validate='key', validatecommand=vcmd).pack(padx=10, pady=10)
+        vcmd_tipo = (top.register(solo_letras), '%P')
+        Entry(top, textvariable=tipo_var, validate='key', validatecommand=vcmd_tipo).pack(padx=10, pady=10)
 
         # Valor diario: solo números, sin espacios ni caracteres especiales
         Label(top, text="Valor diario:").pack(padx=10, pady=5)
         valor_var = StringVar(value=valor_actual)
+
         def solo_numeros(valor):
             if not valor:
                 return True
             if not valor.isdigit() or " " in valor:
                 return False
             return True
+
         vcmd_valor = (top.register(solo_numeros), '%P')
         Entry(top, textvariable=valor_var, validate='key', validatecommand=vcmd_valor).pack(padx=10, pady=5)
 
@@ -2202,16 +2231,6 @@ class InfoCamiones(MenuAdmin, Camiones):
             nuevo_tipo = tipo_var.get().strip()
             nuevo_valor = valor_var.get().strip()
 
-            if not nuevo_tipo:
-                messagebox.showerror("Error", "Ingrese un tipo de arriendo.")
-                return
-            if not nuevo_tipo.replace(" ", "").isalpha():
-                messagebox.showerror("Error", "Solo se permiten letras y espacios.")
-                return
-            if len(nuevo_tipo) > 20:
-                messagebox.showerror("Error", "Máximo 20 caracteres.")
-                return
-            # Validaciones
             if not nuevo_tipo:
                 messagebox.showerror("Error", "Ingrese un tipo de arriendo.")
                 return
@@ -2229,7 +2248,7 @@ class InfoCamiones(MenuAdmin, Camiones):
                 return
 
             tipos = self.cargarTiposArriendo()
-            # Filtro para no guardar con el mismo nombre, independiente del valor
+            # Verifica que no exista el tipo con ese nombre (excepto el actual)
             if any(isinstance(t, dict) and t.get("tipo", "").strip().lower() == nuevo_tipo.lower() and t.get("tipo", "") != tipo_actual for t in tipos):
                 messagebox.showerror("Error", "Ya existe un tipo de arriendo con ese nombre.")
                 return
@@ -2242,9 +2261,26 @@ class InfoCamiones(MenuAdmin, Camiones):
                     break
 
             self.guardarTiposArriendo(tipos)
-            messagebox.showinfo("Éxito", "Tipo de arriendo editado correctamente.")
+
+            # Actualiza el tipo de arriendo en los camiones disponibles
+            camiones = self.cargarCamiones()
+            for camion in camiones:
+                if camion.get("TipoArriendo", "").lower() == tipo_actual.lower() and camion.get("Disponible", "").lower() == "si":
+                    camion["TipoArriendo"] = nuevo_tipo
+                    camion["ValorDiario"] = int(nuevo_valor)
+
+            # Programa la actualización para camiones no disponibles
+            for camion in camiones:
+                if camion.get("TipoArriendo", "").lower() == tipo_actual.lower() and camion.get("Disponible", "").lower() != "si":
+                    camion["TipoArriendoPendiente"] = nuevo_tipo
+                    camion["ValorDiarioPendiente"] = int(nuevo_valor)
+
+            self.guardarCamiones(camiones)
+
+            messagebox.showinfo("Éxito", "Tipo de arriendo editado correctamente. Los cambios se aplicarán automáticamente a los camiones no disponibles cuando estén disponibles.")
             top.destroy()
             self.mostrarCrudTipoArriendo()
+
         Button(top, text="Guardar", command=guardar).pack(pady=10)
 
     def eliminarTipoArriendo(self):
@@ -2471,22 +2507,6 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
             return {}
         with open('modelos.json', 'r') as file:
             return json.load(file)
-
-    def actualizarEstadoCamiones(self):
-        camiones = self.cargarCamiones()
-        hoy = datetime.now().date()
-
-        for c in camiones:
-            fecha_arriendo = datetime.strptime(c.get("FechaArriendo", ""), "%d-%m-%Y").date() if c.get("FechaArriendo") else None
-            dv = c.get("DV", "").upper()
-            if fecha_arriendo and (fecha_arriendo - timedelta(days=2)) <= hoy:
-                c["Disponible"] = "En arriendo"
-            elif dv == "K":
-                c["Disponible"] = "No disponible"
-            else:
-                c["Disponible"] = "Si"
-
-        self.guardarCamiones(camiones)
 
     def enviarCotizacion(self):
         camiones_seleccionados = []
@@ -2862,7 +2882,7 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
         # Configura las columnas para que se expandan y centren los botones
         contenedorFormulario.grid_columnconfigure(0, weight=1)
         contenedorFormulario.grid_columnconfigure(1, weight=1)
-            
+
         def confirmar():
             confirmar = messagebox.askyesno("Confirmar", f'¿Está seguro que desea eliminar el usuario "{self.nombreUsuarioSesionActual}"?')
             if confirmar:
@@ -2900,8 +2920,6 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
                     messagebox.showerror("Error", "Debe completar su perfil antes de acceder al carrito.")
                     self.menuInicial()
                     return False
-            
-        self.actualizarEstadoCamiones()  # Actualiza el estado de los camiones antes de mostrar el carrito
 
         self.limpiarWidgets()
         self.barraHorizontal = Frame(self.root, bg="orange", height=50)
@@ -2923,7 +2941,7 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
         self.contenedorCarrito = Frame(self.root)
         self.contenedorCarrito.pack(fill=BOTH, expand=True, padx=20, pady=20)
 
-        columnas = ("Patente", "Marca", "Modelo", "Valor diario", "Fecha de ingreso", "Disponible", "Tipo de arriendo")
+        columnas = ("Patente", "Marca", "Modelo", "Valor fijo", "Fecha de ingreso", "Disponible", "Tipo de arriendo", "Valor diario arriendo", "Total")
         self.treeCarrito = ttk.Treeview(self.contenedorCarrito, columns=columnas, show='headings')
 
         for col in columnas:
@@ -2933,40 +2951,49 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
         self.treeCarrito.pack(fill=BOTH, expand=True)
 
         camiones = self.cargarCamiones()
-        modelos_dict = self.cargarModelos()
         tipos_arriendo = self.cargarTiposArriendo()
         for c in camiones:
-            if (
-                c.get("Disponible", "").lower() == "en arriendo"
-                and c.get("ArrendadoPor", "") == self.nombreUsuarioSesionActual
-            ):
+            # Filtrar camiones arrendados por el usuario actual
+            if c.get("ArrendadoPor", "") == self.nombreUsuarioSesionActual:
+                tipo_arriendo = c.get("TipoArriendo", "")
+                valor_diario = next((t.get("valor_diario", 0) for t in tipos_arriendo if t.get("tipo", "") == tipo_arriendo), 0)
+
+                # Obtener el valor fijo del modelo
                 marca = c.get("Marca", "")
                 modelo = c.get("Modelo", "")
-                valor_fijo = c.get("valor_fijo")
-                if valor_fijo is None or valor_fijo == "":
-                    modelos = modelos_dict.get(marca, [])
-                    for m in modelos:
-                        nombre = m["nombre"] if isinstance(m, dict) else m
-                        if nombre == modelo and isinstance(m, dict):
-                            valor_fijo = m.get('valor_fijo', 0)
-                            break
-                valor_fijo_str = f"${valor_fijo:,}" if valor_fijo else ""
+                modelos_dict = self.cargarModelos()
+                modelos = modelos_dict.get(marca, [])  # Obtener los modelos de la marca correspondiente
 
-                tipo_arriendo = c.get("TipoArriendo", "")
-                tipo_arriendo_valor = tipo_arriendo
-                for t in tipos_arriendo:
-                    if isinstance(t, dict) and t.get("tipo", "") == tipo_arriendo:
-                        tipo_arriendo_valor = f"{tipo_arriendo}, ${t.get('valor_diario', 0):,}"
-                        break
+                # Buscar el valor fijo del modelo
+                valor_fijo = next((m.get("valor_fijo", 0) for m in modelos if m.get("nombre", "") == modelo), 0)
+
+                # Formatear el valor fijo
+                try:
+                    valor_fijo_num = int(valor_fijo)
+                    valor_fijo_str = f"${valor_fijo_num:,}"
+                except (ValueError, TypeError):
+                    valor_fijo_str = "$0"
+
+                # Calcular el total
+                try:
+                    fecha_arriendo = datetime.strptime(c.get("FechaArriendo", ""), "%d-%m-%Y")
+                    fecha_termino = datetime.strptime(c.get("FechaTermino", ""), "%d-%m-%Y")
+                    dias_arriendo = (fecha_termino - fecha_arriendo).days
+                    total = (valor_fijo_num + valor_diario) * dias_arriendo
+                    total_str = f"${total:,}"
+                except Exception:
+                    total_str = "$0"
 
                 self.treeCarrito.insert('', 'end', values=(
                     c.get("Patente", ""),
-                    marca,
-                    modelo,
+                    c.get("Marca", ""),
+                    c.get("Modelo", ""),
                     valor_fijo_str,
                     c.get("Ingreso", ""),
                     c.get("Disponible", ""),
-                    tipo_arriendo_valor
+                    tipo_arriendo,
+                    f"${valor_diario:,}",
+                    total_str
                 ))
 
         self.imagen = PhotoImage(file="C:/Users/Crist/Documents/TransporteXpress/TransporteXpress/Imagenes/camionbg.png")
@@ -2980,7 +3007,7 @@ class MenuUsuarios(InicioSesionApp, MenuAdmin, Clientes):
 
         # Cargar camiones disponibles
         camiones = self.cargarCamiones()
-        camiones_disponibles = [c for c in camiones if c.get("Disponible", "").lower() == "si"]
+        camiones_disponibles = [c for c in camiones if c.get("Disponible", "") == "Si"]
         patentes = [c["Patente"] for c in camiones_disponibles]
 
         Label(contenedorFormulario, text="Patente de camión:", bg="orange").grid(row=0, column=0, sticky=E, pady=5)
